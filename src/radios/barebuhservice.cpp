@@ -51,6 +51,8 @@ void BarebuhService::ReloadSettings() {
   settings.beginGroup(QLatin1String(BarebuhSettings::kSettingsGroup));
   enabled_ = settings.value(QLatin1String(BarebuhSettings::kEnabled), BarebuhSettings::kEnabledDefault).toBool();
   endpoint_ = QUrl(settings.value(QLatin1String(BarebuhSettings::kEndpoint), QLatin1String(BarebuhSettings::kEndpointDefault)).toString(), QUrl::StrictMode);
+  search_etag_ = settings.value(QLatin1String(BarebuhSettings::kSearchEtag)).toByteArray();
+  if (settings.value(QLatin1String(BarebuhSettings::kSearchEtagEndpoint)).toUrl() != endpoint_) search_etag_.clear();
   settings.endGroup();
 
   if (!IsHttpsEndpoint(endpoint_)) enabled_ = false;
@@ -65,7 +67,7 @@ void BarebuhService::Abort() {
   }
 }
 
-QNetworkReply *BarebuhService::Get(const QUrl &url) {
+QNetworkReply *BarebuhService::Get(const QUrl &url, const QByteArray &etag) {
   QNetworkRequest request(url);
   request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
   request.setAttribute(QNetworkRequest::CacheLoadControlAttribute, QNetworkRequest::AlwaysNetwork);
@@ -73,6 +75,7 @@ QNetworkReply *BarebuhService::Get(const QUrl &url) {
   request.setAttribute(QNetworkRequest::MaximumDownloadBufferSizeAttribute, BarebuhSearchParser::kMaximumResponseBytes);
   request.setTransferTimeout(kTransferTimeout);
   request.setRawHeader("Accept", "application/vnd.openradio.registry+json;version=1, application/json;q=0.8");
+  if (!etag.isEmpty()) request.setRawHeader("If-None-Match", etag);
   QNetworkReply *reply = network_->get(request);
   replies_ << reply;
   return reply;
@@ -125,14 +128,14 @@ void BarebuhService::DiscoveryFinished(QNetworkReply *reply, const int task_id) 
   }
 
   if (!api_base.path().endsWith(u'/')) api_base.setPath(api_base.path() + u'/');
-  const QUrl search_url = api_base.resolved(QUrl(u"search?limit=1000"_s));
+  const QUrl search_url = api_base.resolved(QUrl(u"search?limit=64"_s));
   if (!IsHttpsEndpoint(search_url)) {
     Error(tr("Barebuh registry advertised an unsafe search endpoint."));
     return;
   }
 
   const int search_task_id = task_manager_->StartTask(tr("Loading Barebuh stations"));
-  QNetworkReply *search_reply = Get(search_url);
+  QNetworkReply *search_reply = Get(search_url, search_etag_);
   QObject::connect(search_reply, &QNetworkReply::finished, this, [this, search_reply, search_task_id]() { SearchFinished(search_reply, search_task_id); });
 }
 
@@ -142,7 +145,10 @@ void BarebuhService::SearchFinished(QNetworkReply *reply, const int task_id) {
   reply->deleteLater();
   task_manager_->SetTaskFinished(task_id);
 
-  if (reply->error() != QNetworkReply::NoError || !IsHttpsEndpoint(reply->url())) {
+  const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+  if (status == 304 && reply->error() == QNetworkReply::NoError && IsHttpsEndpoint(reply->url())) return;
+
+  if (reply->error() != QNetworkReply::NoError || status != 200 || !IsHttpsEndpoint(reply->url())) {
     Error(tr("Barebuh station refresh failed."));
     return;
   }
@@ -152,6 +158,13 @@ void BarebuhService::SearchFinished(QNetworkReply *reply, const int task_id) {
     Error(tr("Barebuh station refresh was rejected: %1").arg(result.error));
     return;
   }
+
+  search_etag_ = reply->rawHeader("ETag");
+  Settings settings;
+  settings.beginGroup(QLatin1String(BarebuhSettings::kSettingsGroup));
+  settings.setValue(QLatin1String(BarebuhSettings::kSearchEtag), search_etag_);
+  settings.setValue(QLatin1String(BarebuhSettings::kSearchEtagEndpoint), endpoint_);
+  settings.endGroup();
 
   Q_EMIT NewChannels(result.channels);
 }

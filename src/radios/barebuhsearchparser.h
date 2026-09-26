@@ -24,8 +24,8 @@ struct BarebuhSearchResult {
 
 class BarebuhSearchParser {
  public:
-  static constexpr qsizetype kMaximumResponseBytes = 2 * 1024 * 1024;
-  static constexpr qsizetype kMaximumItems = 1000;
+  static constexpr qsizetype kMaximumResponseBytes = 64 * 1024;
+  static constexpr qsizetype kMaximumItems = 64;
 
   static bool IsValidIJson(const QByteArray &data, qsizetype maximum_bytes);
   static BarebuhSearchResult Parse(const QByteArray &data);

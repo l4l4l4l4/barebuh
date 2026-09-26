@@ -18,6 +18,8 @@ constexpr char kEnabled[] = "enabled";
 constexpr bool kEnabledDefault = false;
 constexpr char kEndpoint[] = "endpoint";
 constexpr char kEndpointDefault[] = "";
+constexpr char kSearchEtag[] = "search_etag";
+constexpr char kSearchEtagEndpoint[] = "search_etag_endpoint";
 
 }  // namespace BarebuhSettings
 

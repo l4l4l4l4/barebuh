@@ -11,6 +11,7 @@
 #ifndef BAREBUHSERVICE_H
 #define BAREBUHSERVICE_H
 
+#include <QByteArray>
 #include <QList>
 #include <QUrl>
 
@@ -38,10 +39,11 @@ class BarebuhService : public RadioService {
   void Abort();
   void DiscoveryFinished(QNetworkReply *reply, int task_id);
   void SearchFinished(QNetworkReply *reply, int task_id);
-  QNetworkReply *Get(const QUrl &url);
+  QNetworkReply *Get(const QUrl &url, const QByteArray &etag = QByteArray());
 
   QList<QNetworkReply*> replies_;
   QUrl endpoint_;
+  QByteArray search_etag_;
   bool enabled_;
 };
 

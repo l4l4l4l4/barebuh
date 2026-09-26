@@ -40,23 +40,27 @@ struct RadioChannel {
   QString codec;
   QString station_id;
   QString provenance;
+  QString policy_state;
   QString health;
   bool forked = false;
   qint64 refreshed_at = 0;
+  qint64 indexed_at = 0;
+  qint64 last_replication_at = 0;
   qint64 health_expires_at = 0;
+  bool offline = false;
 
   Song ToSong() const;
 };
 using RadioChannelList = QList<RadioChannel>;
 
 inline QDataStream &operator<<(QDataStream &stream, const RadioChannel &channel) {
-  stream << static_cast<int>(channel.source) << channel.name << channel.url << channel.thumbnail_url << channel.country << channel.tags << channel.codec << channel.station_id << channel.provenance << channel.health << channel.forked << channel.refreshed_at << channel.health_expires_at;
+  stream << static_cast<int>(channel.source) << channel.name << channel.url << channel.thumbnail_url << channel.country << channel.tags << channel.codec << channel.station_id << channel.provenance << channel.policy_state << channel.health << channel.forked << channel.refreshed_at << channel.indexed_at << channel.last_replication_at << channel.health_expires_at << channel.offline;
   return stream;
 }
 
 inline QDataStream &operator>>(QDataStream &stream, RadioChannel &channel) {
   int source = 0;
-  stream >> source >> channel.name >> channel.url >> channel.thumbnail_url >> channel.country >> channel.tags >> channel.codec >> channel.station_id >> channel.provenance >> channel.health >> channel.forked >> channel.refreshed_at >> channel.health_expires_at;
+  stream >> source >> channel.name >> channel.url >> channel.thumbnail_url >> channel.country >> channel.tags >> channel.codec >> channel.station_id >> channel.provenance >> channel.policy_state >> channel.health >> channel.forked >> channel.refreshed_at >> channel.indexed_at >> channel.last_replication_at >> channel.health_expires_at >> channel.offline;
   channel.source = static_cast<Song::Source>(source);
   return stream;
 }

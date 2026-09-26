@@ -31,7 +31,7 @@ QByteArray Station(const QByteArray &name = "Example FM", const QByteArray &url 
          "\"station\":{\"name\":\"" + name + "\",\"country\":\"US\",\"tags\":[\"jazz\",\"live\"],"
          "\"streams\":[{\"url\":\"" + url + "\",\"transport\":\"https\",\"codec\":\"mp3\"}]},"
          "\"provenance\":[],\"indexed_at\":\"2026-09-26T12:00:00Z\",\"last_replication_at\":\"2026-09-26T12:00:00Z\","
-         "\"policy_state\":\"admitted\",\"health\":{\"state\":\"unknown\"}}";
+         "\"policy_state\":\"admitted\",\"health\":{\"state\":\"unknown\",\"expires_at\":null}}";
 }
 
 }  // namespace
@@ -99,4 +99,40 @@ TEST(BarebuhSearchParserTest, DeduplicatesByPlaybackUrl) {
   const BarebuhSearchResult result = BarebuhSearchParser::Parse(SearchPage("[" + station + "," + station + "]"));
   ASSERT_TRUE(result.valid) << result.error;
   EXPECT_EQ(1, result.channels.size());
+}
+
+TEST(BarebuhSearchParserTest, RejectsPublishedBoundedIJsonViolations) {
+  EXPECT_FALSE(BarebuhSearchParser::Parse(SearchPage("[]").replace("snapshot-1", "\\ud800")).valid);
+
+  QByteArray deep = "0";
+  for (int i = 0; i < 17; ++i) deep = "[" + deep + "]";
+  EXPECT_FALSE(BarebuhSearchParser::IsValidIJson(deep, BarebuhSearchParser::kMaximumResponseBytes));
+
+  EXPECT_FALSE(BarebuhSearchParser::IsValidIJson("{\"n\":9007199254740992}", BarebuhSearchParser::kMaximumResponseBytes));
+  EXPECT_FALSE(BarebuhSearchParser::IsValidIJson("{\"n\":-1}", BarebuhSearchParser::kMaximumResponseBytes));
+  EXPECT_FALSE(BarebuhSearchParser::IsValidIJson("{\"s\":\"" + QByteArray(4097, 'x') + "\"}", BarebuhSearchParser::kMaximumResponseBytes));
+
+  QByteArray members = "{";
+  for (int i = 0; i < 65; ++i) members += (i == 0 ? "" : ",") + QByteArray("\"") + QByteArray::number(i) + "\":null";
+  members += "}";
+  EXPECT_FALSE(BarebuhSearchParser::IsValidIJson(members, BarebuhSearchParser::kMaximumResponseBytes));
+}
+
+TEST(BarebuhSearchParserTest, RejectsIncompleteOrInvalidProjectionState) {
+  QByteArray missing = Station();
+  missing.replace("\"indexed_at\":\"2026-09-26T12:00:00Z\",", "");
+  EXPECT_FALSE(BarebuhSearchParser::Parse(SearchPage("[" + missing + "]")).valid);
+
+  QByteArray invalid_policy = Station();
+  invalid_policy.replace("\"policy_state\":\"admitted\"", "\"policy_state\":\"attacker-defined\"");
+  EXPECT_FALSE(BarebuhSearchParser::Parse(SearchPage("[" + invalid_policy + "]")).valid);
+
+  QByteArray invalid_health = Station();
+  invalid_health.replace("\"state\":\"unknown\",\"expires_at\":null", "\"state\":\"excellent\",\"expires_at\":\"not-a-time\"");
+  EXPECT_FALSE(BarebuhSearchParser::Parse(SearchPage("[" + invalid_health + "]")).valid);
+
+  QByteArray oversized_codec = Station();
+  const QByteArray codec = QByteArray("\"codec\":\"") + QByteArray(1000, 'x') + QByteArray("\"");
+  oversized_codec.replace("\"codec\":\"mp3\"", codec);
+  EXPECT_FALSE(BarebuhSearchParser::Parse(SearchPage("[" + oversized_codec + "]")).valid);
 }

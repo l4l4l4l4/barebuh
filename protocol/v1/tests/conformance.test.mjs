@@ -238,3 +238,31 @@ test("offline runner accepts golden vectors and rejects malformed vectors", () =
   assert.equal(result.status, 0, result.stderr || result.stdout);
   assert.match(result.stdout, /12 fixtures passed/u);
 });
+
+test("shared interoperability cases cover DAG, pagination, endpoint scope, and offline cache", () => {
+  const cases = parseJsonStrict(readFileSync(join(protocolRoot, "fixtures", "interoperability-cases.json")));
+  const records = new Map(cases.dag.records.map(record => [record.id, record]));
+  const childIds = new Set(cases.dag.records.flatMap(record => record.parents));
+  const tipsBeforeMerge = cases.dag.records.slice(0, 3).filter(record => !new Set(cases.dag.records.slice(0, 3).flatMap(item => item.parents)).has(record.id)).map(record => record.id).sort();
+  assert.deepEqual(tipsBeforeMerge, cases.dag.fork_tips_before_merge);
+  const winner = tipIds => tipIds.map(id => records.get(id)).sort((left, right) => right.sequence - left.sequence || left.id.localeCompare(right.id))[0];
+  assert.equal(winner(tipsBeforeMerge).id, cases.dag.winner_before_merge);
+  const finalTips = cases.dag.records.filter(record => !childIds.has(record.id));
+  assert.equal(winner(finalTips.map(record => record.id)).id, cases.dag.winner_after_merge);
+  assert.equal(winner(finalTips.map(record => record.id)).deleted, true);
+  assert.equal(cases.dag.tombstone_remains_after_replay, true);
+
+  assert.equal(cases.pagination.pages[0].next_cursor, cases.pagination.pages[1].cursor);
+  assert.equal(cases.pagination.pages[0].query_snapshot, cases.pagination.pages[1].query_snapshot);
+  assert.equal(cases.pagination.conditional_status, 304);
+  assert.equal(cases.pagination.replacement_on_304, false);
+  for (const endpoint of cases.endpoint_scope.accepted) assert.ok(endpoint.endpoint_index < cases.endpoint_scope.stream_count);
+  for (const endpoint of cases.endpoint_scope.rejected) {
+    assert.ok(endpoint.endpoint_index >= cases.endpoint_scope.stream_count || Object.keys(endpoint).length !== 1);
+  }
+  assert.deepEqual(cases.offline_cache.cached_fields, ["country", "tags", "codec", "indexed_at", "last_replication_at", "policy_state", "health", "health_expires_at", "etag", "refreshed_at"]);
+  assert.equal(cases.offline_cache.failed_refresh_preserves_rows, true);
+  assert.equal(cases.offline_cache.offline, true);
+  assert.ok(cases.offline_cache.data_age_seconds > 0);
+  assert.equal(cases.offline_cache.expired_health_becomes, "unknown");
+});

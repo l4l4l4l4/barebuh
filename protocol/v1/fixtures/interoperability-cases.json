@@ -1,0 +1,37 @@
+{
+  "protocol": "oradio/1",
+  "fixture_version": 1,
+  "dag": {
+    "records": [
+      {"id": "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "sequence": 0, "parents": [], "deleted": false},
+      {"id": "sha256:BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", "sequence": 1, "parents": ["sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"], "deleted": false},
+      {"id": "sha256:CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC", "sequence": 1, "parents": ["sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"], "deleted": false},
+      {"id": "sha256:DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", "sequence": 2, "parents": ["sha256:BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", "sha256:CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"], "deleted": true}
+    ],
+    "fork_tips_before_merge": ["sha256:BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", "sha256:CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"],
+    "winner_before_merge": "sha256:BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "winner_after_merge": "sha256:DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+    "tombstone_remains_after_replay": true
+  },
+  "pagination": {
+    "request_etag": "\"snapshot-v1\"",
+    "pages": [
+      {"cursor": null, "next_cursor": "opaque-2", "has_more": true, "query_snapshot": "snapshot-v1"},
+      {"cursor": "opaque-2", "next_cursor": null, "has_more": false, "query_snapshot": "snapshot-v1"}
+    ],
+    "conditional_status": 304,
+    "replacement_on_304": false
+  },
+  "endpoint_scope": {
+    "stream_count": 2,
+    "accepted": [{"endpoint_index": 0}, {"endpoint_index": 1}],
+    "rejected": [{"endpoint_index": 2}, {"endpoint_index": 0, "stream_url_digest": "sha256:EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE"}]
+  },
+  "offline_cache": {
+    "cached_fields": ["country", "tags", "codec", "indexed_at", "last_replication_at", "policy_state", "health", "health_expires_at", "etag", "refreshed_at"],
+    "failed_refresh_preserves_rows": true,
+    "offline": true,
+    "data_age_seconds": 300,
+    "expired_health_becomes": "unknown"
+  }
+}

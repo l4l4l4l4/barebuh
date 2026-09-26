@@ -19,6 +19,8 @@
 #include <QStringList>
 #include <QUrl>
 
+#include <cmath>
+
 #include "barebuhsearchparser.h"
 
 using namespace Qt::Literals::StringLiterals;
@@ -29,13 +31,19 @@ bool IsHexDigit(const char character) {
   return (character >= '0' && character <= '9') || (character >= 'a' && character <= 'f') || (character >= 'A' && character <= 'F');
 }
 
+int HexValue(const char character) {
+  if (character >= '0' && character <= '9') return character - '0';
+  if (character >= 'a' && character <= 'f') return character - 'a' + 10;
+  return character - 'A' + 10;
+}
+
 class JsonStructureValidator {
  public:
   explicit JsonStructureValidator(const QByteArray &data) : data_(data) {}
 
   bool Validate() {
     SkipWhitespace();
-    if (!ParseValue(0)) return false;
+    if (!ParseValue(1)) return false;
     SkipWhitespace();
     return position_ == data_.size();
   }
@@ -59,11 +67,19 @@ class JsonStructureValidator {
     while (position_ < data_.size()) {
       const unsigned char character = static_cast<unsigned char>(data_.at(position_++));
       if (character == '"') {
-        if (decoded) {
-          const QJsonDocument string_document = QJsonDocument::fromJson("[" + data_.mid(start, position_ - start) + "]");
-          if (!string_document.isArray() || string_document.array().size() != 1 || !string_document.array().first().isString()) return false;
-          *decoded = string_document.array().first().toString();
+        const QJsonDocument string_document = QJsonDocument::fromJson("[" + data_.mid(start, position_ - start) + "]");
+        if (!string_document.isArray() || string_document.array().size() != 1 || !string_document.array().first().isString()) return false;
+        const QString value = string_document.array().first().toString();
+        if (value.toUtf8().size() > 4096) return false;
+        for (qsizetype i = 0; i < value.size(); ++i) {
+          const ushort unit = value.at(i).unicode();
+          if (unit <= 0x1f || (unit >= 0x7f && unit <= 0x9f)) return false;
+          if (QChar::isHighSurrogate(unit)) {
+            if (++i >= value.size() || !QChar::isLowSurrogate(value.at(i).unicode())) return false;
+          }
+          else if (QChar::isLowSurrogate(unit)) return false;
         }
+        if (decoded) *decoded = value;
         return true;
       }
       if (character < 0x20) return false;
@@ -71,10 +87,23 @@ class JsonStructureValidator {
       if (position_ >= data_.size()) return false;
       const char escape = data_.at(position_++);
       if (escape == 'u') {
+        ushort unit = 0;
         for (int i = 0; i < 4; ++i) {
           if (position_ >= data_.size() || !IsHexDigit(data_.at(position_))) return false;
+          unit = static_cast<ushort>((unit << 4) | HexValue(data_.at(position_)));
           ++position_;
         }
+        if (QChar::isHighSurrogate(unit)) {
+          if (position_ + 6 > data_.size() || data_.at(position_) != '\\' || data_.at(position_ + 1) != 'u') return false;
+          position_ += 2;
+          ushort low = 0;
+          for (int i = 0; i < 4; ++i) {
+            if (!IsHexDigit(data_.at(position_))) return false;
+            low = static_cast<ushort>((low << 4) | HexValue(data_.at(position_++)));
+          }
+          if (!QChar::isLowSurrogate(low)) return false;
+        }
+        else if (QChar::isLowSurrogate(unit)) return false;
       }
       else if (escape != '"' && escape != '\\' && escape != '/' && escape != 'b' && escape != 'f' && escape != 'n' && escape != 'r' && escape != 't') {
         return false;
@@ -88,7 +117,9 @@ class JsonStructureValidator {
     SkipWhitespace();
     if (Consume('}')) return true;
     QSet<QString> keys;
+    int members = 0;
     while (true) {
+      if (++members > 64) return false;
       QString key;
       if (!ParseString(&key) || keys.contains(key)) return false;
       keys.insert(key);
@@ -103,7 +134,9 @@ class JsonStructureValidator {
     if (!Consume('[')) return false;
     SkipWhitespace();
     if (Consume(']')) return true;
+    int items = 0;
     while (true) {
+      if (++items > 64) return false;
       if (!ParseValue(depth + 1)) return false;
       SkipWhitespace();
       if (Consume(']')) return true;
@@ -112,7 +145,7 @@ class JsonStructureValidator {
   }
 
   bool ParseValue(const int depth) {
-    if (depth > 32) return false;
+    if (depth > 16) return false;
     SkipWhitespace();
     if (position_ >= data_.size()) return false;
     if (data_.at(position_) == '{') return ParseObject(depth);
@@ -127,7 +160,16 @@ class JsonStructureValidator {
     }
     const qsizetype start = position_;
     while (position_ < data_.size() && data_.at(position_) != ',' && data_.at(position_) != ']' && data_.at(position_) != '}' && data_.at(position_) != ' ' && data_.at(position_) != '\t' && data_.at(position_) != '\r' && data_.at(position_) != '\n') ++position_;
-    return position_ > start;
+    if (position_ == start) return false;
+    static const QRegularExpression number_expression(u"^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?$"_s);
+    const QByteArray token = data_.mid(start, position_ - start);
+    if (!number_expression.match(QString::fromLatin1(token)).hasMatch()) return false;
+    const QJsonDocument number_document = QJsonDocument::fromJson("[" + token + "]");
+    if (!number_document.isArray() || number_document.array().isEmpty() || !number_document.array().first().isDouble()) return false;
+    const double number = number_document.array().first().toDouble();
+    if (!std::isfinite(number)) return false;
+    if (std::trunc(number) == number && (number < 0 || number > 9007199254740991.0)) return false;
+    return true;
   }
 
   const QByteArray &data_;
@@ -141,11 +183,21 @@ BarebuhSearchResult Invalid(const QString &error) {
 }
 
 bool IsBoundedText(const QString &text, const qsizetype maximum, const bool allow_empty = false) {
-  if ((!allow_empty && text.trimmed().isEmpty()) || text.size() > maximum) return false;
+  if ((!allow_empty && text.trimmed().isEmpty()) || text.toUtf8().size() > maximum) return false;
   for (const QChar character : text) {
     if ((character.category() == QChar::Other_Control && character != u'\t') || character == QChar::ObjectReplacementCharacter) return false;
   }
   return true;
+}
+
+qint64 ParseInstant(const QJsonValue &value) {
+  if (!value.isString()) return 0;
+  static const QRegularExpression expression(u"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"_s);
+  const QString text = value.toString();
+  if (!expression.match(text).hasMatch()) return 0;
+  const QDateTime instant = QDateTime::fromString(text, Qt::ISODate);
+  if (!instant.isValid() || instant.timeSpec() != Qt::UTC || instant.toString(u"yyyy-MM-dd'T'HH:mm:ss'Z'"_s) != text) return 0;
+  return instant.toSecsSinceEpoch();
 }
 
 bool IsPlaybackUrl(const QUrl &url) {
@@ -199,6 +251,11 @@ BarebuhSearchResult BarebuhSearchParser::Parse(const QByteArray &data) {
     const QString winning_record_id = item.value(u"winning_record_id"_s).toString();
     const QJsonArray tips = item.value(u"tips"_s).toArray();
     if (!IsRecordId(winning_record_id) || tips.isEmpty() || tips.size() > 32 || !item.value(u"forked"_s).isBool() || !item.value(u"station"_s).isObject() || (!item.value(u"provenance"_s).isArray() && !item.value(u"provenance"_s).isObject()) || !item.value(u"health"_s).isObject()) return Invalid(u"The registry returned incomplete station state."_s);
+    const qint64 indexed_at = ParseInstant(item.value(u"indexed_at"_s));
+    const qint64 last_replication_at = ParseInstant(item.value(u"last_replication_at"_s));
+    const QString policy_state = item.value(u"policy_state"_s).toString();
+    static const QSet<QString> policy_states = {u"admitted"_s, u"suppressed"_s, u"tombstoned"_s, u"unsupported_critical"_s};
+    if (indexed_at <= 0 || last_replication_at <= 0 || !policy_states.contains(policy_state)) return Invalid(u"The registry returned invalid freshness or policy state."_s);
     for (const QJsonValue &tip : tips) {
       if (!tip.isString() || !IsRecordId(tip.toString())) return Invalid(u"The registry returned an invalid station tip."_s);
     }
@@ -207,10 +264,10 @@ BarebuhSearchResult BarebuhSearchParser::Parse(const QByteArray &data) {
 
     const QJsonObject station = item.value(u"station"_s).toObject();
     const QString name = station.value(u"name"_s).toString().trimmed();
-    if (!IsBoundedText(name, 512) || !station.value(u"streams"_s).isArray()) return Invalid(u"The registry returned invalid station metadata."_s);
+    if (!IsBoundedText(name, 200) || !station.value(u"streams"_s).isArray()) return Invalid(u"The registry returned invalid station metadata."_s);
 
     const QJsonArray streams = station.value(u"streams"_s).toArray();
-    if (streams.isEmpty() || streams.size() > 32) return Invalid(u"The registry returned an invalid stream list."_s);
+    if (streams.isEmpty() || streams.size() > 16) return Invalid(u"The registry returned an invalid stream list."_s);
 
     QUrl selected_url;
     QString selected_codec;
@@ -218,10 +275,11 @@ BarebuhSearchResult BarebuhSearchParser::Parse(const QByteArray &data) {
       if (!stream_value.isObject()) return Invalid(u"The registry returned an invalid stream."_s);
       const QJsonObject stream = stream_value.toObject();
       const QUrl stream_url(stream.value(u"url"_s).toString(), QUrl::StrictMode);
-      if (!IsPlaybackUrl(stream_url) || stream.value(u"transport"_s).toString() != stream_url.scheme()) return Invalid(u"The registry returned an unsafe stream URL."_s);
+      const QString codec = stream.value(u"codec"_s).toString().trimmed();
+      if (!IsPlaybackUrl(stream_url) || stream.value(u"url"_s).toString().toUtf8().size() > 2048 || stream.value(u"transport"_s).toString() != stream_url.scheme() || !IsBoundedText(codec, 64)) return Invalid(u"The registry returned an unsafe stream URL."_s);
       if (selected_url.isEmpty() || (selected_url.scheme() != u"https"_s && stream_url.scheme() == u"https"_s)) {
         selected_url = stream_url;
-        selected_codec = stream.value(u"codec"_s).toString().trimmed();
+        selected_codec = codec;
       }
     }
 
@@ -232,9 +290,9 @@ BarebuhSearchResult BarebuhSearchParser::Parse(const QByteArray &data) {
     QStringList tags;
     const QJsonValue tags_value = station.value(u"tags"_s);
     if (!tags_value.isUndefined()) {
-      if (!tags_value.isArray() || tags_value.toArray().size() > 64) return Invalid(u"The registry returned invalid station tags."_s);
+      if (!tags_value.isArray() || tags_value.toArray().size() > 32) return Invalid(u"The registry returned invalid station tags."_s);
       for (const QJsonValue &tag_value : tags_value.toArray()) {
-        if (!tag_value.isString() || !IsBoundedText(tag_value.toString(), 128)) return Invalid(u"The registry returned invalid station tags."_s);
+        if (!tag_value.isString() || !IsBoundedText(tag_value.toString(), 64)) return Invalid(u"The registry returned invalid station tags."_s);
         tags << tag_value.toString().trimmed();
       }
     }
@@ -249,12 +307,21 @@ BarebuhSearchResult BarebuhSearchParser::Parse(const QByteArray &data) {
     channel.codec = selected_codec;
     channel.station_id = station_id;
     channel.provenance = QString::fromUtf8(provenance);
+    channel.policy_state = policy_state;
     channel.forked = item.value(u"forked"_s).toBool();
     const QJsonObject health = item.value(u"health"_s).toObject();
     channel.health = health.value(u"state"_s).toString();
-    channel.health_expires_at = QDateTime::fromString(health.value(u"expires_at"_s).toString(), Qt::ISODate).toSecsSinceEpoch();
+    static const QSet<QString> health_states = {u"unknown"_s, u"ok"_s, u"degraded"_s, u"unreachable"_s, u"blocked"_s};
+    if (!health_states.contains(channel.health) || !health.contains(u"expires_at"_s)) return Invalid(u"The registry returned invalid health state."_s);
+    if (health.value(u"expires_at"_s).isNull() && channel.health == u"unknown"_s) channel.health_expires_at = 0;
+    else {
+      channel.health_expires_at = ParseInstant(health.value(u"expires_at"_s));
+      if (channel.health_expires_at <= 0) return Invalid(u"The registry returned invalid health expiry."_s);
+    }
     if (channel.health_expires_at <= QDateTime::currentSecsSinceEpoch()) channel.health = u"unknown"_s;
     channel.refreshed_at = QDateTime::currentSecsSinceEpoch();
+    channel.indexed_at = indexed_at;
+    channel.last_replication_at = last_replication_at;
     result.channels << channel;
   }
 

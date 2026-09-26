@@ -29,6 +29,7 @@ target_link_libraries(test_utils PRIVATE
   Qt${QT_VERSION_MAJOR}::Network
   Qt${QT_VERSION_MAJOR}::Sql
   Qt${QT_VERSION_MAJOR}::Test
+  strawberry_lib
 )
 
 qt_add_resources(TEST-RESOURCE-SOURCES data/testdata.qrc ${CMAKE_SOURCE_DIR}/data/data.qrc ${CMAKE_SOURCE_DIR}/data/icons.qrc)
@@ -43,6 +44,8 @@ target_link_libraries(test_main PRIVATE
   PkgConfig::GLIB
   PkgConfig::GOBJECT
   PkgConfig::GSTREAMER_BASE
+  GTest::gtest
+  GTest::gmock
   Qt${QT_VERSION_MAJOR}::Core
   Qt${QT_VERSION_MAJOR}::Widgets
   strawberry_lib
@@ -58,6 +61,8 @@ target_link_libraries(test_gui_main PRIVATE
   PkgConfig::GLIB
   PkgConfig::GOBJECT
   PkgConfig::GSTREAMER_BASE
+  GTest::gtest
+  GTest::gmock
   Qt${QT_VERSION_MAJOR}::Core
   Qt${QT_VERSION_MAJOR}::Widgets
   strawberry_lib
@@ -78,12 +83,15 @@ macro(add_test_file test_source gui_required)
       PkgConfig::GOBJECT
       PkgConfig::GSTREAMER_BASE
       PkgConfig::GSTREAMER_APP
+      GTest::gtest
+      GTest::gmock
       Qt${QT_VERSION_MAJOR}::Core
       Qt${QT_VERSION_MAJOR}::Concurrent
       Qt${QT_VERSION_MAJOR}::Network
       Qt${QT_VERSION_MAJOR}::Sql
       Qt${QT_VERSION_MAJOR}::Test
       Qt${QT_VERSION_MAJOR}::Widgets
+      strawberry_lib
     )
     target_link_libraries(${TEST_NAME} PRIVATE test_utils)
     set(GUI_REQUIRED ${gui_required})

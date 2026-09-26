@@ -13,6 +13,7 @@
 
 #include "gtest_include.h"
 
+#include <QDateTime>
 #include <QSignalSpy>
 
 #include "core/memorydatabase.h"
@@ -83,4 +84,58 @@ TEST(RadioBackendTest, ExpiredCachedHealthBecomesUnknown) {
   const RadioChannelList channels = ReadChannels(&backend);
   ASSERT_EQ(1, channels.size());
   EXPECT_EQ(u"unknown"_s, channels.first().health);
+}
+
+TEST(RadioBackendTest, PreservesCompleteBarebuhMetadataAcrossReload) {
+  const SharedPtr<Database> database = make_shared<MemoryDatabase>(nullptr);
+  RadioChannel channel = Channel(Song::Source::Barebuh, u"Cached"_s, u"https://barebuh.example/live"_s);
+  channel.country = u"FI"_s;
+  channel.tags = u"jazz, live"_s;
+  channel.codec = u"opus"_s;
+  channel.station_id = u"oradio:station:ed25519:abcdefghijklmnopqrstuvwxyzABCDEFGH123456789"_s;
+  channel.provenance = u"[]"_s;
+  channel.policy_state = u"admitted"_s;
+  channel.health = u"ok"_s;
+  channel.forked = true;
+  channel.refreshed_at = 100;
+  channel.indexed_at = 101;
+  channel.last_replication_at = 102;
+  channel.health_expires_at = QDateTime::currentSecsSinceEpoch() + 3600;
+
+  {
+    RadioBackend writer(database);
+    QSignalSpy replaced(&writer, &RadioBackend::ChannelsReplaced);
+    writer.ReplaceChannelsAsync(Song::Source::Barebuh, {channel});
+    ASSERT_TRUE(replaced.wait());
+  }
+  RadioBackend reader(database);
+  const RadioChannelList channels = ReadChannels(&reader);
+  ASSERT_EQ(1, channels.size());
+  const RadioChannel &cached = channels.first();
+  EXPECT_EQ(channel.country, cached.country);
+  EXPECT_EQ(channel.tags, cached.tags);
+  EXPECT_EQ(channel.codec, cached.codec);
+  EXPECT_EQ(channel.station_id, cached.station_id);
+  EXPECT_EQ(channel.provenance, cached.provenance);
+  EXPECT_EQ(channel.policy_state, cached.policy_state);
+  EXPECT_EQ(channel.health, cached.health);
+  EXPECT_EQ(channel.forked, cached.forked);
+  EXPECT_EQ(channel.refreshed_at, cached.refreshed_at);
+  EXPECT_EQ(channel.indexed_at, cached.indexed_at);
+  EXPECT_EQ(channel.last_replication_at, cached.last_replication_at);
+  EXPECT_EQ(channel.health_expires_at, cached.health_expires_at);
+  EXPECT_TRUE(cached.offline);
+}
+
+TEST(RadioBackendTest, InvalidReplacementPreservesLastKnownGoodRows) {
+  const SharedPtr<Database> database = make_shared<MemoryDatabase>(nullptr);
+  RadioBackend backend(database);
+  QSignalSpy replaced(&backend, &RadioBackend::ChannelsReplaced);
+  backend.ReplaceChannelsAsync(Song::Source::Barebuh, {Channel(Song::Source::Barebuh, u"Good"_s, u"https://barebuh.example/good"_s)});
+  ASSERT_TRUE(replaced.wait());
+  backend.ReplaceChannelsAsync(Song::Source::Barebuh, {Channel(Song::Source::SomaFM, u"Wrong source"_s, u"https://barebuh.example/bad"_s)});
+  EXPECT_FALSE(replaced.wait(100));
+  const RadioChannelList channels = ReadChannels(&backend);
+  ASSERT_EQ(1, channels.size());
+  EXPECT_EQ(u"Good"_s, channels.first().name);
 }

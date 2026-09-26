@@ -1,6 +1,6 @@
 # oradio/1 protocol assets
 
-Status: implementation draft; no interoperability claim
+Status: implementation draft; two independent fixture verifiers, no public-federation readiness claim
 
 This directory is the versioned source of truth for the signed station-record,
 node-card, and health-observation wire shapes described in
@@ -61,6 +61,7 @@ used.
 make -C protocol/v1 check
 node protocol/v1/conformance-runner.mjs
 node protocol/v1/conformance-runner.mjs /path/to/manifest.json
+nix-shell --pure -p 'python3.withPackages (ps: [ ps.jsonschema ps.cryptography ])' --run 'make -C protocol/v1 independent'
 ```
 
 The runner strictly parses every fixture, verifies Ed25519 signatures and
@@ -69,5 +70,10 @@ and confirms that invalid vectors fail at the declared stage. The private seed
 used to create the public RFC 8032-derived test key is not included. Fixtures
 contain public keys and signatures only.
 
-Passing this runner is one implementation result, not the two-independent-
-implementation evidence required by `docs/threat-model.md` before federation.
+`python-conformance.py` is an independent implementation using Python,
+`cryptography`, and the Draft 2020-12 validator from `jsonschema`. Both runners
+also consume `fixtures/interoperability-cases.json`, which covers fork/merge and
+tombstone replay, cursor/snapshot/ETag/304 handling, endpoint scope, and offline
+cache retention. Passing both implementations supplies local interoperability
+evidence, but does not by itself satisfy operational, governance, naming, or
+public-federation launch gates.

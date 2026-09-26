@@ -106,6 +106,9 @@ QVariant RadioModel::data(const RadioItem *item, int role) const {
         QStringList details;
         details << tr("Station identity: %1").arg(item->channel.station_id);
         details << tr("Health: %1").arg(item->channel.health.isEmpty() ? tr("unknown") : item->channel.health);
+        details << tr("Policy: %1").arg(item->channel.policy_state);
+        details << (item->channel.offline ? tr("Data state: offline cache (stale until revalidated)") : tr("Data state: online"));
+        if (item->channel.refreshed_at > 0) details << tr("Data age: %1 seconds").arg(qMax<qint64>(0, QDateTime::currentSecsSinceEpoch() - item->channel.refreshed_at));
         if (item->channel.forked) details << tr("Warning: the registry reports conflicting station records.");
         if (item->channel.refreshed_at > 0) details << tr("Cached at: %1").arg(QLocale().toString(QDateTime::fromSecsSinceEpoch(item->channel.refreshed_at).toLocalTime(), QLocale::ShortFormat));
         if (!item->channel.provenance.isEmpty()) details << tr("Provenance: %1").arg(item->channel.provenance);
