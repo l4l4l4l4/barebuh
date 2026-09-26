@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -239,30 +240,138 @@ test("offline runner accepts golden vectors and rejects malformed vectors", () =
   assert.match(result.stdout, /12 fixtures passed/u);
 });
 
-test("shared interoperability cases cover DAG, pagination, endpoint scope, and offline cache", () => {
+test("shared interoperability state machines execute every normative feasible case", () => {
   const cases = parseJsonStrict(readFileSync(join(protocolRoot, "fixtures", "interoperability-cases.json")));
-  const records = new Map(cases.dag.records.map(record => [record.id, record]));
-  const childIds = new Set(cases.dag.records.flatMap(record => record.parents));
-  const tipsBeforeMerge = cases.dag.records.slice(0, 3).filter(record => !new Set(cases.dag.records.slice(0, 3).flatMap(item => item.parents)).has(record.id)).map(record => record.id).sort();
-  assert.deepEqual(tipsBeforeMerge, cases.dag.fork_tips_before_merge);
-  const winner = tipIds => tipIds.map(id => records.get(id)).sort((left, right) => right.sequence - left.sequence || left.id.localeCompare(right.id))[0];
-  assert.equal(winner(tipsBeforeMerge).id, cases.dag.winner_before_merge);
-  const finalTips = cases.dag.records.filter(record => !childIds.has(record.id));
-  assert.equal(winner(finalTips.map(record => record.id)).id, cases.dag.winner_after_merge);
-  assert.equal(winner(finalTips.map(record => record.id)).deleted, true);
-  assert.equal(cases.dag.tombstone_remains_after_replay, true);
+  const definitions = new Map(cases.dag.records.map(record => [record.id, record]));
+  const state = { records: new Map(), orphans: new Map() };
+  const receive = id => {
+    if (state.records.has(id) || state.orphans.has(id)) return;
+    const record = definitions.get(id);
+    if (record.parents.some(parent => !state.records.has(parent))) state.orphans.set(id, record);
+    else state.records.set(id, record);
+    let promoted = true;
+    while (promoted) {
+      promoted = false;
+      for (const [orphanId, orphan] of state.orphans) {
+        if (orphan.parents.every(parent => state.records.has(parent))) {
+          state.orphans.delete(orphanId);
+          state.records.set(orphanId, orphan);
+          promoted = true;
+        }
+      }
+    }
+  };
+  const tips = records => {
+    const parents = new Set([...records.values()].flatMap(record => record.parents));
+    return [...records.values()].filter(record => !parents.has(record.id)).sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
+  };
+  const winner = records => tips(records).sort((left, right) => right.sequence - left.sequence || (left.id < right.id ? -1 : 1))[0];
 
-  assert.equal(cases.pagination.pages[0].next_cursor, cases.pagination.pages[1].cursor);
-  assert.equal(cases.pagination.pages[0].query_snapshot, cases.pagination.pages[1].query_snapshot);
-  assert.equal(cases.pagination.conditional_status, 304);
-  assert.equal(cases.pagination.replacement_on_304, false);
-  for (const endpoint of cases.endpoint_scope.accepted) assert.ok(endpoint.endpoint_index < cases.endpoint_scope.stream_count);
-  for (const endpoint of cases.endpoint_scope.rejected) {
-    assert.ok(endpoint.endpoint_index >= cases.endpoint_scope.stream_count || Object.keys(endpoint).length !== 1);
+  receive(cases.dag.arrival_order[0]);
+  assert.deepEqual([...state.orphans.keys()].sort(), cases.dag.expected.orphan_after_first);
+  for (const id of cases.dag.arrival_order.slice(1, 3)) receive(id);
+  assert.deepEqual(tips(state.records).map(record => record.id), cases.dag.expected.fork_tips);
+  assert.equal(winner(state.records).id, cases.dag.expected.fork_winner);
+  receive("M");
+  assert.equal(winner(state.records).id, cases.dag.expected.merge_winner);
+  for (const id of cases.dag.arrival_order.slice(4)) receive(id);
+  assert.deepEqual(tips(state.records).map(record => record.id), cases.dag.expected.final_tips);
+  assert.equal(winner(state.records).id, cases.dag.expected.final_winner);
+  assert.equal(winner(state.records).deleted, true);
+  assert.deepEqual([...state.records.keys()].sort(), cases.dag.expected.stored);
+
+  const replay = cases.replication.crash_replay;
+  const committed = { cursor: replay.initial_cursor, records: new Set() };
+  const applyPage = (target, crashAfter) => {
+    const transaction = { cursor: target.cursor, records: new Set(target.records) };
+    replay.page.items.forEach((item, index) => {
+      transaction.records.add(item);
+      if (index === crashAfter) throw new Error("injected crash");
+    });
+    transaction.cursor = replay.page.next_cursor;
+    return transaction;
+  };
+  assert.throws(() => applyPage(committed, replay.crash_after_item), /injected crash/u);
+  assert.equal(committed.cursor, replay.expected_cursor_after_crash);
+  assert.deepEqual([...committed.records], replay.expected_records_after_crash);
+  const replayed = applyPage(committed, -1);
+  assert.equal(replayed.cursor, replay.expected_cursor_after_replay);
+  assert.deepEqual([...replayed.records].sort(), replay.expected_records_after_replay);
+
+  const logs = { A: new Set(), B: new Set(), C: new Set() };
+  for (const delivery of cases.replication.loop_deliveries) for (const id of delivery.items) logs[delivery.to].add(id);
+  for (const [node, expected] of Object.entries(cases.replication.expected_loop_logs)) assert.deepEqual([...logs[node]].sort(), expected);
+
+  const recovery = cases.replication.snapshot_recovery;
+  const snapshot = new Set();
+  const snapshotId = recovery.snapshot_pages[0].snapshot;
+  let checkpoint = null;
+  for (const page of recovery.snapshot_pages) {
+    assert.equal(page.snapshot, snapshotId);
+    for (const id of page.items) snapshot.add(id);
+    if (!page.has_more) checkpoint = page.checkpoint;
   }
-  assert.deepEqual(cases.offline_cache.cached_fields, ["country", "tags", "codec", "indexed_at", "last_replication_at", "policy_state", "health", "health_expires_at", "etag", "refreshed_at"]);
-  assert.equal(cases.offline_cache.failed_refresh_preserves_rows, true);
-  assert.equal(cases.offline_cache.offline, true);
-  assert.ok(cases.offline_cache.data_age_seconds > 0);
-  assert.equal(cases.offline_cache.expired_health_becomes, "unknown");
+  const recovered = new Set([...recovery.local_records, ...snapshot]);
+  assert.deepEqual([...recovered].sort(), recovery.expected_records);
+  assert.equal(checkpoint, recovery.expected_cursor);
+  assert.equal(winner(new Map([...recovered].map(id => [id, definitions.get(id)]))).id, recovery.expected_winner);
+
+  const ordered = [...cases.search.candidates].sort((left, right) => right.score - left.score || Buffer.compare(Buffer.from(left.name), Buffer.from(right.name)) || Buffer.compare(Buffer.from(left.id), Buffer.from(right.id)));
+  assert.deepEqual(ordered.map(item => item.id), cases.search.expected_order);
+  for (const request of cases.search.requests) {
+    const binding = cases.search.cursor_store[request.cursor];
+    let error = null;
+    let ids = null;
+    if (!binding) error = "cursor_invalid";
+    else if (binding.feed !== request.feed || canonicalize(binding.filter) !== canonicalize(request.filter)) error = "cursor_binding_mismatch";
+    else ids = ordered.slice(binding.offset, binding.offset + 2).map(item => item.id);
+    if (request.expected_error) assert.equal(error, request.expected_error);
+    else assert.deepEqual(ids, request.expected_ids);
+  }
+
+  const cache = structuredClone(cases.http_cache.initial);
+  for (const event of cases.http_cache.events) {
+    const matchingValidator = event.url === cache.url && event.request_etag === cache.etag;
+    let outcome;
+    if (event.status === 304) outcome = matchingValidator ? "not_modified" : "failure";
+    else {
+      cache.url = event.url;
+      cache.etag = event.response_etag;
+      cache.rows = [...event.rows];
+      outcome = "replaced";
+    }
+    assert.equal(outcome, event.expected);
+  }
+  assert.deepEqual(cache, cases.http_cache.expected_final);
+
+  for (const observation of cases.endpoint_scope.observations) {
+    const endpoint = observation.endpoint;
+    const fields = ["endpoint_index", "stream_url_digest"].filter(field => Object.hasOwn(endpoint, field));
+    const digests = cases.endpoint_scope.stream_urls.map(url => `sha256:${createHash("sha256").update(url).digest("base64url")}`);
+    const accepted = fields.length === 1 && (fields[0] === "endpoint_index" ? endpoint.endpoint_index >= 0 && endpoint.endpoint_index < cases.endpoint_scope.stream_urls.length : digests.includes(endpoint.stream_url_digest));
+    assert.equal(accepted ? "accepted" : "quarantined", observation.expected);
+  }
+
+  for (const extension of cases.extensions.cases) {
+    const critical = extension.payload.critical ?? [];
+    const missing = critical.find(member => !Object.hasOwn(extension.payload, member));
+    if (extension.expected_error) {
+      assert.ok(missing);
+      assert.equal(extension.expected_error, "critical_member_missing");
+      continue;
+    }
+    assert.equal(critical.length === 0, extension.expected_materializable);
+    assert.deepEqual(extension.payload.future, extension.expected_preserved);
+  }
+
+  const offline = structuredClone(cases.offline_cache.initial);
+  for (const row of offline.rows) for (const field of cases.offline_cache.required_fields) assert.ok(Object.hasOwn(row, field), `missing cache field ${field}`);
+  const actual = {
+    mode: "offline_stale",
+    data_age: cases.offline_cache.now_epoch - offline.refreshed_at,
+    row_ids: offline.rows.map(row => row.station_id).sort(),
+    health: Object.fromEntries(offline.rows.map(row => [row.station_id, row.health_expires_at > 0 && row.health_expires_at <= cases.offline_cache.now_epoch ? "unknown" : row.health])),
+    tombstones: offline.rows.filter(row => row.tombstone).map(row => row.station_id),
+  };
+  assert.deepEqual(actual, cases.offline_cache.expected);
 });

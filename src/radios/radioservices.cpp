@@ -82,6 +82,11 @@ void RadioServices::AddService(RadioService *service) {
   services_.insert(service->source(), service);
 
   QObject::connect(service, &RadioService::NewChannels, this, &RadioServices::GotChannelsFromService);
+  QObject::connect(service, &RadioService::RefreshStateChanged, this, [this, service](const bool online) {
+    if (online) online_sources_.insert(service->source());
+    else online_sources_.remove(service->source());
+    model_->SetSourceOffline(service->source(), !online);
+  });
   QObject::connect(service, &RadioService::destroyed, this, &RadioServices::ServiceDeleted);
 
 }
@@ -144,7 +149,11 @@ void RadioServices::GotChannelsFromBackend(const RadioChannelList &channels) {
     }
   }
   else {
-    model_->AddChannels(channels);
+    RadioChannelList display_channels = channels;
+    for (RadioChannel &channel : display_channels) {
+      if (online_sources_.contains(channel.source)) channel.offline = false;
+    }
+    model_->AddChannels(display_channels);
     channels_refresh_ = false;
   }
 

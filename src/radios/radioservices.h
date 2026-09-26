@@ -22,6 +22,7 @@
 
 #include <QObject>
 #include <QMap>
+#include <QSet>
 
 #include "includes/shared_ptr.h"
 #include "core/song.h"
@@ -77,6 +78,7 @@ class RadioServices : public QObject {
   RadioModel *model_;
   QSortFilterProxyModel *sort_model_;
   QMap<Song::Source, RadioService*> services_;
+  QSet<Song::Source> online_sources_;
   bool channels_refresh_;
 };
 

@@ -205,6 +205,17 @@ void RadioModel::AddChannels(const RadioChannelList &channels) {
 
 }
 
+void RadioModel::SetSourceOffline(const Song::Source source, const bool offline) {
+
+  for (RadioItem *item : std::as_const(items_)) {
+    if (item->source != source || item->channel.offline == offline) continue;
+    item->channel.offline = offline;
+    const QModelIndex idx = ItemToIndex(item);
+    if (idx.isValid()) Q_EMIT dataChanged(idx, idx, {Qt::ToolTipRole});
+  }
+
+}
+
 bool RadioModel::IsPlayable(const QModelIndex &idx) const {
 
   return idx.data(Role_Type).value<RadioItem::Type>() == RadioItem::Type::Channel;

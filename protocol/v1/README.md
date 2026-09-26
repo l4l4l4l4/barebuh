@@ -72,8 +72,12 @@ contain public keys and signatures only.
 
 `python-conformance.py` is an independent implementation using Python,
 `cryptography`, and the Draft 2020-12 validator from `jsonschema`. Both runners
-also consume `fixtures/interoperability-cases.json`, which covers fork/merge and
-tombstone replay, cursor/snapshot/ETag/304 handling, endpoint scope, and offline
-cache retention. Passing both implementations supplies local interoperability
-evidence, but does not by itself satisfy operational, governance, naming, or
-public-federation launch gates.
+independently execute `fixtures/interoperability-cases.json`: orphan promotion,
+fork/merge/tombstone convergence, atomic page replay, loop deduplication,
+snapshot recovery, stable search order, cursor/filter binding, endpoint scope,
+unknown and critical members, URL-bound ETag/304 transitions, and complete
+offline cache age/health behavior. The fixture supplies inputs and expected end
+states; neither runner treats supplied booleans as computed outcomes. Passing
+both implementations supplies local interoperability evidence, but does not by
+itself satisfy operational, governance, naming, or public-federation launch
+gates.

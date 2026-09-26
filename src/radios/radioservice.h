@@ -61,6 +61,7 @@ class RadioService : public QObject {
 
  Q_SIGNALS:
   void NewChannels(const RadioChannelList &channels = RadioChannelList());
+  void RefreshStateChanged(bool online);
 
  public Q_SLOTS:
   virtual void GetChannels() = 0;

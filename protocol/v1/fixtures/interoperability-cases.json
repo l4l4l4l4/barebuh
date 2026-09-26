@@ -1,37 +1,111 @@
 {
   "protocol": "oradio/1",
-  "fixture_version": 1,
+  "fixture_version": 2,
   "dag": {
     "records": [
-      {"id": "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "sequence": 0, "parents": [], "deleted": false},
-      {"id": "sha256:BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", "sequence": 1, "parents": ["sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"], "deleted": false},
-      {"id": "sha256:CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC", "sequence": 1, "parents": ["sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"], "deleted": false},
-      {"id": "sha256:DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", "sequence": 2, "parents": ["sha256:BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", "sha256:CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"], "deleted": true}
+      {"id": "G", "sequence": 0, "parents": [], "deleted": false},
+      {"id": "B", "sequence": 1, "parents": ["G"], "deleted": false},
+      {"id": "C", "sequence": 1, "parents": ["G"], "deleted": false},
+      {"id": "M", "sequence": 2, "parents": ["B", "C"], "deleted": false},
+      {"id": "T", "sequence": 3, "parents": ["M"], "deleted": true}
     ],
-    "fork_tips_before_merge": ["sha256:BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", "sha256:CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"],
-    "winner_before_merge": "sha256:BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
-    "winner_after_merge": "sha256:DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
-    "tombstone_remains_after_replay": true
+    "arrival_order": ["B", "G", "C", "M", "T", "G", "B", "M"],
+    "expected": {
+      "orphan_after_first": ["B"],
+      "fork_tips": ["B", "C"],
+      "fork_winner": "B",
+      "merge_winner": "M",
+      "final_tips": ["T"],
+      "final_winner": "T",
+      "stored": ["B", "C", "G", "M", "T"]
+    }
   },
-  "pagination": {
-    "request_etag": "\"snapshot-v1\"",
-    "pages": [
-      {"cursor": null, "next_cursor": "opaque-2", "has_more": true, "query_snapshot": "snapshot-v1"},
-      {"cursor": "opaque-2", "next_cursor": null, "has_more": false, "query_snapshot": "snapshot-v1"}
+  "replication": {
+    "crash_replay": {
+      "initial_cursor": "c0",
+      "page": {"cursor": "c0", "items": ["G", "B", "C"], "next_cursor": "c1"},
+      "crash_after_item": 1,
+      "expected_cursor_after_crash": "c0",
+      "expected_records_after_crash": [],
+      "expected_cursor_after_replay": "c1",
+      "expected_records_after_replay": ["B", "C", "G"]
+    },
+    "loop_deliveries": [
+      {"to": "A", "items": ["G", "B"]},
+      {"to": "B", "items": ["G", "B"]},
+      {"to": "C", "items": ["G", "B"]},
+      {"to": "A", "items": ["G", "B", "G"]}
     ],
-    "conditional_status": 304,
-    "replacement_on_304": false
+    "expected_loop_logs": {"A": ["B", "G"], "B": ["B", "G"], "C": ["B", "G"]},
+    "snapshot_recovery": {
+      "local_records": ["G", "B", "T"],
+      "snapshot_pages": [
+        {"snapshot": "s7", "items": ["G", "B"], "has_more": true},
+        {"snapshot": "s7", "items": ["C", "M", "T"], "has_more": false, "checkpoint": "c7"}
+      ],
+      "expected_records": ["B", "C", "G", "M", "T"],
+      "expected_cursor": "c7",
+      "expected_winner": "T"
+    }
+  },
+  "search": {
+    "candidates": [
+      {"id": "D", "score": 9, "name": "aardvark"},
+      {"id": "C", "score": 10, "name": "beta"},
+      {"id": "B", "score": 10, "name": "alpha"},
+      {"id": "A", "score": 10, "name": "alpha"}
+    ],
+    "expected_order": ["A", "B", "C", "D"],
+    "cursor_store": {
+      "opaque-p2": {"feed": "search", "filter": {"country": "US", "tag": "jazz"}, "snapshot": "s1", "offset": 2}
+    },
+    "requests": [
+      {"cursor": "opaque-p2", "feed": "search", "filter": {"country": "US", "tag": "jazz"}, "expected_ids": ["C", "D"]},
+      {"cursor": "opaque-p2", "feed": "search", "filter": {"country": "US", "tag": "rock"}, "expected_error": "cursor_binding_mismatch"},
+      {"cursor": "opaque-p2", "feed": "records", "filter": {"country": "US", "tag": "jazz"}, "expected_error": "cursor_binding_mismatch"},
+      {"cursor": "unknown", "feed": "search", "filter": {"country": "US", "tag": "jazz"}, "expected_error": "cursor_invalid"}
+    ]
+  },
+  "http_cache": {
+    "initial": {"url": "https://a.example/v1/search?limit=64", "etag": "\"a1\"", "rows": ["A", "B"]},
+    "events": [
+      {"url": "https://a.example/v1/search?limit=64", "status": 304, "request_etag": "\"a1\"", "expected": "not_modified"},
+      {"url": "https://b.example/v1/search?limit=64", "status": 304, "request_etag": null, "expected": "failure"},
+      {"url": "https://b.example/v1/search?limit=64", "status": 200, "response_etag": "\"b1\"", "rows": ["C"], "expected": "replaced"},
+      {"url": "https://b.example/v1/search?limit=64", "status": 304, "request_etag": "\"b1\"", "expected": "not_modified"}
+    ],
+    "expected_final": {"url": "https://b.example/v1/search?limit=64", "etag": "\"b1\"", "rows": ["C"]}
   },
   "endpoint_scope": {
-    "stream_count": 2,
-    "accepted": [{"endpoint_index": 0}, {"endpoint_index": 1}],
-    "rejected": [{"endpoint_index": 2}, {"endpoint_index": 0, "stream_url_digest": "sha256:EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE"}]
+    "stream_urls": ["https://stream.example/one", "https://stream.example/two"],
+    "observations": [
+      {"endpoint": {"endpoint_index": 0}, "expected": "accepted"},
+      {"endpoint": {"endpoint_index": 2}, "expected": "quarantined"},
+      {"endpoint": {"stream_url_digest": "sha256:RVLDWglwAFxwp9fmR_8vmRuFU4fmh8mReNSERrdxnBw"}, "expected": "accepted"},
+      {"endpoint": {"stream_url_digest": "sha256:NymLXD7oQ3tSfDA150KiovKu1hPJPa_FdzwGJbdH6Ss"}, "expected": "quarantined"},
+      {"endpoint": {"endpoint_index": 0, "stream_url_digest": "sha256:Mtf2IORR9I2HNKVTQBIkor_lXlRPuzhjDUXMgkS3C-k"}, "expected": "quarantined"}
+    ]
+  },
+  "extensions": {
+    "known_members": ["protocol", "kind", "station_id"],
+    "cases": [
+      {"payload": {"protocol": "oradio/1", "kind": "station", "station_id": "S", "future": {"mode": "test"}}, "expected_materializable": true, "expected_preserved": {"mode": "test"}},
+      {"payload": {"protocol": "oradio/1", "kind": "station", "station_id": "S", "future": {"mode": "test"}, "critical": ["future"]}, "expected_materializable": false, "expected_preserved": {"mode": "test"}},
+      {"payload": {"protocol": "oradio/1", "kind": "station", "station_id": "S", "critical": ["missing"]}, "expected_error": "critical_member_missing"}
+    ]
   },
   "offline_cache": {
-    "cached_fields": ["country", "tags", "codec", "indexed_at", "last_replication_at", "policy_state", "health", "health_expires_at", "etag", "refreshed_at"],
-    "failed_refresh_preserves_rows": true,
-    "offline": true,
-    "data_age_seconds": 300,
-    "expired_health_becomes": "unknown"
+    "now_epoch": 1300,
+    "required_fields": ["country", "tags", "codec", "indexed_at", "last_replication_at", "policy_state", "health", "health_expires_at", "etag", "refreshed_at"],
+    "initial": {
+      "rows": [
+        {"station_id": "live", "country": "US", "tags": ["jazz"], "codec": "mp3", "indexed_at": 900, "last_replication_at": 950, "policy_state": "admitted", "health": "ok", "health_expires_at": 1200, "etag": "\"cache\"", "refreshed_at": 1000},
+        {"station_id": "deleted", "country": "US", "tags": [], "codec": "", "indexed_at": 900, "last_replication_at": 950, "policy_state": "admitted", "health": "unknown", "health_expires_at": 0, "etag": "\"cache\"", "refreshed_at": 1000, "tombstone": true}
+      ],
+      "etag": "\"cache\"",
+      "refreshed_at": 1000
+    },
+    "event": "refresh_failure",
+    "expected": {"mode": "offline_stale", "data_age": 300, "row_ids": ["deleted", "live"], "health": {"live": "unknown", "deleted": "unknown"}, "tombstones": ["deleted"]}
   }
 }

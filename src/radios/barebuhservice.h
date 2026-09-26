@@ -37,12 +37,15 @@ class BarebuhService : public RadioService {
 
  private:
   void Abort();
+  void RefreshFailed(const QString &error);
+  void ClearSearchValidator();
   void DiscoveryFinished(QNetworkReply *reply, int task_id);
-  void SearchFinished(QNetworkReply *reply, int task_id);
+  void SearchFinished(QNetworkReply *reply, int task_id, const QUrl &search_url, const QByteArray &request_etag);
   QNetworkReply *Get(const QUrl &url, const QByteArray &etag = QByteArray());
 
   QList<QNetworkReply*> replies_;
   QUrl endpoint_;
+  QUrl search_etag_url_;
   QByteArray search_etag_;
   bool enabled_;
 };

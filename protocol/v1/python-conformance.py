@@ -5,6 +5,7 @@
 """Independent Python verifier for the shared oradio/1 conformance corpus."""
 
 import base64
+import copy
 import hashlib
 import json
 import math
@@ -148,6 +149,162 @@ def schema_validator(kind):
     return Draft202012Validator(schema, resolver=resolver)
 
 
+def execute_interoperability(cases):
+    failures = []
+    definitions = {record["id"]: record for record in cases["dag"]["records"]}
+    records = {}
+    orphans = {}
+
+    def receive(record_id):
+        if record_id in records or record_id in orphans:
+            return
+        record = definitions[record_id]
+        target = orphans if any(parent not in records for parent in record["parents"]) else records
+        target[record_id] = record
+        promoted = True
+        while promoted:
+            promoted = False
+            for orphan_id, orphan in list(orphans.items()):
+                if all(parent in records for parent in orphan["parents"]):
+                    records[orphan_id] = orphans.pop(orphan_id)
+                    promoted = True
+
+    def record_tips(values):
+        parents = {parent for record in values.values() for parent in record["parents"]}
+        return sorted((record for record_id, record in values.items() if record_id not in parents), key=lambda record: record["id"])
+
+    def record_winner(values):
+        return sorted(record_tips(values), key=lambda record: (-record["sequence"], record["id"]))[0]
+
+    arrival = cases["dag"]["arrival_order"]
+    receive(arrival[0])
+    if sorted(orphans) != cases["dag"]["expected"]["orphan_after_first"]:
+        failures.append("orphan acceptance mismatch")
+    for record_id in arrival[1:3]:
+        receive(record_id)
+    if [record["id"] for record in record_tips(records)] != cases["dag"]["expected"]["fork_tips"] or record_winner(records)["id"] != cases["dag"]["expected"]["fork_winner"]:
+        failures.append("fork convergence mismatch")
+    receive("M")
+    if record_winner(records)["id"] != cases["dag"]["expected"]["merge_winner"]:
+        failures.append("merge mismatch")
+    for record_id in arrival[4:]:
+        receive(record_id)
+    winner = record_winner(records)
+    if ([record["id"] for record in record_tips(records)] != cases["dag"]["expected"]["final_tips"] or
+            winner["id"] != cases["dag"]["expected"]["final_winner"] or not winner["deleted"] or
+            sorted(records) != cases["dag"]["expected"]["stored"]):
+        failures.append("tombstone non-resurrection mismatch")
+
+    replay = cases["replication"]["crash_replay"]
+    committed = {"cursor": replay["initial_cursor"], "records": set()}
+
+    def apply_page(target, crash_after=None):
+        transaction = {"cursor": target["cursor"], "records": set(target["records"])}
+        for index, item in enumerate(replay["page"]["items"]):
+            transaction["records"].add(item)
+            if index == crash_after:
+                raise RuntimeError("injected crash")
+        transaction["cursor"] = replay["page"]["next_cursor"]
+        return transaction
+
+    try:
+        apply_page(committed, replay["crash_after_item"])
+        failures.append("crash was not injected")
+    except RuntimeError:
+        pass
+    if committed["cursor"] != replay["expected_cursor_after_crash"] or sorted(committed["records"]) != replay["expected_records_after_crash"]:
+        failures.append("crash page escaped transaction")
+    replayed = apply_page(committed)
+    if replayed["cursor"] != replay["expected_cursor_after_replay"] or sorted(replayed["records"]) != replay["expected_records_after_replay"]:
+        failures.append("page replay mismatch")
+
+    logs = {node: set() for node in ("A", "B", "C")}
+    for delivery in cases["replication"]["loop_deliveries"]:
+        logs[delivery["to"]].update(delivery["items"])
+    for node, expected in cases["replication"]["expected_loop_logs"].items():
+        if sorted(logs[node]) != expected:
+            failures.append(f"loop deduplication mismatch for {node}")
+
+    recovery = cases["replication"]["snapshot_recovery"]
+    snapshot = set()
+    snapshot_id = recovery["snapshot_pages"][0]["snapshot"]
+    checkpoint = None
+    for page in recovery["snapshot_pages"]:
+        if page["snapshot"] != snapshot_id:
+            failures.append("snapshot changed between pages")
+        snapshot.update(page["items"])
+        if not page["has_more"]:
+            checkpoint = page["checkpoint"]
+    recovered = set(recovery["local_records"]) | snapshot
+    recovered_records = {record_id: definitions[record_id] for record_id in recovered}
+    if sorted(recovered) != recovery["expected_records"] or checkpoint != recovery["expected_cursor"] or record_winner(recovered_records)["id"] != recovery["expected_winner"]:
+        failures.append("snapshot recovery mismatch")
+
+    ordered = sorted(cases["search"]["candidates"], key=lambda item: (-item["score"], item["name"].encode(), item["id"].encode()))
+    if [item["id"] for item in ordered] != cases["search"]["expected_order"]:
+        failures.append("stable search order mismatch")
+    for request in cases["search"]["requests"]:
+        binding = cases["search"]["cursor_store"].get(request["cursor"])
+        error = None
+        ids = None
+        if binding is None:
+            error = "cursor_invalid"
+        elif binding["feed"] != request["feed"] or canonical(binding["filter"]) != canonical(request["filter"]):
+            error = "cursor_binding_mismatch"
+        else:
+            ids = [item["id"] for item in ordered[binding["offset"]:binding["offset"] + 2]]
+        if request.get("expected_error", error) != error or request.get("expected_ids", ids) != ids:
+            failures.append("opaque cursor binding mismatch")
+
+    cache = copy.deepcopy(cases["http_cache"]["initial"])
+    for event in cases["http_cache"]["events"]:
+        matching = event["url"] == cache["url"] and event.get("request_etag") == cache["etag"]
+        if event["status"] == 304:
+            outcome = "not_modified" if matching else "failure"
+        else:
+            cache = {"url": event["url"], "etag": event["response_etag"], "rows": list(event["rows"])}
+            outcome = "replaced"
+        if outcome != event["expected"]:
+            failures.append("ETag transition mismatch")
+    if cache != cases["http_cache"]["expected_final"]:
+        failures.append("HTTP cache final state mismatch")
+
+    streams = cases["endpoint_scope"]["stream_urls"]
+    stream_digests = {"sha256:" + base64.urlsafe_b64encode(hashlib.sha256(value.encode()).digest()).rstrip(b"=").decode() for value in streams}
+    for observation in cases["endpoint_scope"]["observations"]:
+        endpoint = observation["endpoint"]
+        fields = [field for field in ("endpoint_index", "stream_url_digest") if field in endpoint]
+        accepted = len(fields) == 1 and ((fields[0] == "endpoint_index" and 0 <= endpoint[fields[0]] < len(streams)) or (fields[0] == "stream_url_digest" and endpoint[fields[0]] in stream_digests))
+        if ("accepted" if accepted else "quarantined") != observation["expected"]:
+            failures.append("endpoint scope mismatch")
+
+    for extension in cases["extensions"]["cases"]:
+        payload = extension["payload"]
+        critical = payload.get("critical", [])
+        missing = next((member for member in critical if member not in payload), None)
+        if extension.get("expected_error"):
+            if missing is None:
+                failures.append("missing critical member accepted")
+        elif (not critical) != extension["expected_materializable"] or payload.get("future") != extension["expected_preserved"]:
+            failures.append("unknown member handling mismatch")
+
+    offline_case = cases["offline_cache"]
+    offline = copy.deepcopy(offline_case["initial"])
+    for row in offline["rows"]:
+        if any(field not in row for field in offline_case["required_fields"]):
+            failures.append("incomplete cached row")
+    actual = {
+        "mode": "offline_stale",
+        "data_age": offline_case["now_epoch"] - offline["refreshed_at"],
+        "row_ids": sorted(row["station_id"] for row in offline["rows"]),
+        "health": {row["station_id"]: "unknown" if 0 < row["health_expires_at"] <= offline_case["now_epoch"] else row["health"] for row in offline["rows"]},
+        "tombstones": [row["station_id"] for row in offline["rows"] if row.get("tombstone")],
+    }
+    if actual != offline_case["expected"]:
+        failures.append("offline cache age/health/tombstone mismatch")
+    return failures
+
+
 def run():
     manifest = strict_load(ROOT / "fixtures/manifest.json")
     failures = []
@@ -169,19 +326,7 @@ def run():
             if fixture["valid"]:
                 failures.append(f"{fixture['name']}: {error}")
     cases = strict_load(ROOT / "fixtures/interoperability-cases.json")
-    records = {record["id"]: record for record in cases["dag"]["records"]}
-    first = cases["dag"]["records"][:3]
-    parents = {parent for record in first for parent in record["parents"]}
-    tips = sorted(record["id"] for record in first if record["id"] not in parents)
-    winner = sorted((records[item] for item in tips), key=lambda record: (-record["sequence"], record["id"]))[0]
-    if tips != cases["dag"]["fork_tips_before_merge"] or winner["id"] != cases["dag"]["winner_before_merge"]:
-        failures.append("interoperability DAG fork winner mismatch")
-    if cases["pagination"]["conditional_status"] != 304 or cases["pagination"]["replacement_on_304"]:
-        failures.append("conditional refresh contract mismatch")
-    if any(item["endpoint_index"] >= cases["endpoint_scope"]["stream_count"] for item in cases["endpoint_scope"]["accepted"]):
-        failures.append("endpoint scope mismatch")
-    if not cases["offline_cache"]["failed_refresh_preserves_rows"] or not cases["offline_cache"]["offline"]:
-        failures.append("offline cache contract mismatch")
+    failures.extend(execute_interoperability(cases))
     if failures:
         print("\n".join(f"FAIL {failure}" for failure in failures), file=sys.stderr)
         return 1
