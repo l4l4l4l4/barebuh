@@ -79,10 +79,11 @@ class Song {
     Spotify = 11,
     RadioBrowser = 12,
     Plex = 13,
-    Jellyfin = 14
+    Jellyfin = 14,
+    Barebuh = 15
   };
   static const int kSourceCount = 16;
-  static_assert(static_cast<int>(Source::Jellyfin) < kSourceCount, "kSourceCount must exceed the largest Song::Source value");
+  static_assert(static_cast<int>(Source::Barebuh) < kSourceCount, "kSourceCount must exceed the largest Song::Source value");
 
   enum class FileType {
     Unknown = 0,

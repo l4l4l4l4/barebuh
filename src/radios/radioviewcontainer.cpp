@@ -20,6 +20,9 @@
 #include <QWidget>
 #include <QSettings>
 #include <QToolButton>
+#include <QLineEdit>
+#include <QRegularExpression>
+#include <QSortFilterProxyModel>
 
 #include "core/iconloader.h"
 #include "core/settings.h"
@@ -36,6 +39,13 @@ RadioViewContainer::RadioViewContainer(QWidget *parent)
   ui_->setupUi(this);
 
   QObject::connect(ui_->refresh, &QToolButton::clicked, this, &RadioViewContainer::Refresh);
+  QObject::connect(ui_->search_channels, &QLineEdit::textChanged, this, [this](const QString &text) {
+    QSortFilterProxyModel *model = qobject_cast<QSortFilterProxyModel*>(ui_->view->model());
+    if (!model) return;
+    model->setRecursiveFilteringEnabled(true);
+    model->setFilterCaseSensitivity(Qt::CaseInsensitive);
+    model->setFilterRegularExpression(QRegularExpression(QRegularExpression::escape(text)));
+  });
 
   ui_->refresh->setIcon(IconLoader::Load(u"view-refresh"_s));
 

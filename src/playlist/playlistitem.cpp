@@ -59,6 +59,7 @@ PlaylistItemPtr PlaylistItem::NewFromSource(const Song::Source source, const QUu
     case Song::Source::RadioParadise:
     case Song::Source::SomaFM:
     case Song::Source::RadioBrowser:
+    case Song::Source::Barebuh:
       return make_shared<RadioStreamPlaylistItem>(source, uuid);
     case Song::Source::LocalFile:
     case Song::Source::CDDA:
@@ -87,6 +88,7 @@ PlaylistItemPtr PlaylistItem::NewFromSong(const Song &song, const bool signal) {
     case Song::Source::RadioParadise:
     case Song::Source::SomaFM:
     case Song::Source::RadioBrowser:
+    case Song::Source::Barebuh:
       return make_shared<RadioStreamPlaylistItem>(song, signal);
     case Song::Source::LocalFile:
     case Song::Source::CDDA:

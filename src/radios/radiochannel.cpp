@@ -30,6 +30,8 @@ Song RadioChannel::ToSong() const {
   song.set_filetype(Song::FileType::Stream);
   song.set_title(Song::DescriptionForSource(source) + QLatin1Char(' ') + name);
   song.set_url(url);
+  song.set_song_id(station_id);
+  song.set_comment(provenance);
 
   return song;
 

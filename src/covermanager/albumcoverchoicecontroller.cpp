@@ -583,6 +583,7 @@ void AlbumCoverChoiceController::SaveArtManualToSong(Song *song, const QUrl &art
     case Song::Source::RadioParadise:
     case Song::Source::SomaFM:
     case Song::Source::RadioBrowser:
+    case Song::Source::Barebuh:
     case Song::Source::Unknown:
       break;
     case Song::Source::Subsonic:

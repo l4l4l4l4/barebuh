@@ -374,6 +374,7 @@ optional_component(SPOTIFY ON "Streaming: Spotify")
 optional_component(QOBUZ ON "Streaming: Qobuz")
 optional_component(PLEX ON "Streaming: Plex")
 optional_component(JELLYFIN ON "Streaming: Jellyfin")
+optional_component(BAREBUH ON "Radio: Barebuh client")
 
 optional_component(MOODBAR ON "Moodbar")
 
@@ -1255,6 +1256,11 @@ set(UI
   src/device/deviceproperties.ui
   src/device/deviceviewcontainer.ui
 )
+
+if(HAVE_BAREBUH)
+  list(APPEND SOURCES src/radios/barebuhsearchparser.cpp src/radios/barebuhservice.cpp)
+  list(APPEND HEADERS src/constants/barebuhsettings.h src/radios/barebuhsearchparser.h src/radios/barebuhservice.h)
+endif()
 
 if(UNIX)
   list(APPEND SOURCES src/core/unixsignalwatcher.cpp)

@@ -38,19 +38,25 @@ struct RadioChannel {
   QString country;
   QString tags;
   QString codec;
+  QString station_id;
+  QString provenance;
+  QString health;
+  bool forked = false;
+  qint64 refreshed_at = 0;
+  qint64 health_expires_at = 0;
 
   Song ToSong() const;
 };
 using RadioChannelList = QList<RadioChannel>;
 
 inline QDataStream &operator<<(QDataStream &stream, const RadioChannel &channel) {
-  stream << static_cast<int>(channel.source) << channel.name << channel.url << channel.thumbnail_url << channel.country << channel.tags << channel.codec;
+  stream << static_cast<int>(channel.source) << channel.name << channel.url << channel.thumbnail_url << channel.country << channel.tags << channel.codec << channel.station_id << channel.provenance << channel.health << channel.forked << channel.refreshed_at << channel.health_expires_at;
   return stream;
 }
 
 inline QDataStream &operator>>(QDataStream &stream, RadioChannel &channel) {
   int source = 0;
-  stream >> source >> channel.name >> channel.url >> channel.thumbnail_url >> channel.country >> channel.tags >> channel.codec;
+  stream >> source >> channel.name >> channel.url >> channel.thumbnail_url >> channel.country >> channel.tags >> channel.codec >> channel.station_id >> channel.provenance >> channel.health >> channel.forked >> channel.refreshed_at >> channel.health_expires_at;
   channel.source = static_cast<Song::Source>(source);
   return stream;
 }

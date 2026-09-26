@@ -96,6 +96,36 @@
     </widget>
    </item>
    <item>
+    <widget class="QGroupBox" name="group_barebuh">
+     <property name="title">
+      <string>Barebuh</string>
+     </property>
+     <layout class="QFormLayout" name="layout_barebuh">
+      <item row="0" column="0" colspan="2">
+       <widget class="QCheckBox" name="check_barebuh_enabled">
+        <property name="text">
+         <string>Enable federated registry discovery</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_barebuh_endpoint">
+        <property name="text">
+         <string>Registry HTTPS origin:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QLineEdit" name="edit_barebuh_endpoint">
+        <property name="placeholderText">
+         <string>https://registry.example</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
     <spacer name="spacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>

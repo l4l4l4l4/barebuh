@@ -27,6 +27,8 @@
 #include <QPixmap>
 #include <QPixmapCache>
 #include <QRegularExpression>
+#include <QDateTime>
+#include <QLocale>
 
 #include "core/song.h"
 #include "core/simpletreemodel.h"
@@ -98,6 +100,17 @@ QVariant RadioModel::data(const RadioItem *item, int role) const {
       break;
     case Qt::DisplayRole:
       return item->DisplayText();
+      break;
+    case Qt::ToolTipRole:
+      if (item->type == RadioItem::Type::Channel && item->source == Song::Source::Barebuh) {
+        QStringList details;
+        details << tr("Station identity: %1").arg(item->channel.station_id);
+        details << tr("Health: %1").arg(item->channel.health.isEmpty() ? tr("unknown") : item->channel.health);
+        if (item->channel.forked) details << tr("Warning: the registry reports conflicting station records.");
+        if (item->channel.refreshed_at > 0) details << tr("Cached at: %1").arg(QLocale().toString(QDateTime::fromSecsSinceEpoch(item->channel.refreshed_at).toLocalTime(), QLocale::ShortFormat));
+        if (!item->channel.provenance.isEmpty()) details << tr("Provenance: %1").arg(item->channel.provenance);
+        return details.join(u'\n');
+      }
       break;
     case Role_Type:
       return QVariant::fromValue(item->type);

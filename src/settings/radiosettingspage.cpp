@@ -19,6 +19,8 @@
 
 #include <algorithm>
 
+#include "config.h"
+
 #include <QObject>
 #include <QCoreApplication>
 #include <QList>
@@ -28,6 +30,7 @@
 #include <QComboBox>
 #include <QSpinBox>
 #include <QCheckBox>
+#include <QLineEdit>
 
 #include "settingsdialog.h"
 #include "radiosettingspage.h"
@@ -36,6 +39,7 @@
 #include "core/settings.h"
 #include "constants/somafmsettings.h"
 #include "constants/radiobrowsersettings.h"
+#include "constants/barebuhsettings.h"
 
 using namespace Qt::Literals::StringLiterals;
 
@@ -99,6 +103,10 @@ RadioSettingsPage::RadioSettingsPage(SettingsDialog *dialog, QWidget *parent)
   // Radio Browser country options
   PopulateCountries(ui_->combo_default_country);
 
+#ifndef HAVE_BAREBUH
+  ui_->group_barebuh->hide();
+#endif
+
 }
 
 RadioSettingsPage::~RadioSettingsPage() { delete ui_; }
@@ -124,6 +132,16 @@ void RadioSettingsPage::Load() {
     s.endGroup();
   }
 
+#ifdef HAVE_BAREBUH
+  {
+    Settings s;
+    s.beginGroup(QLatin1String(BarebuhSettings::kSettingsGroup));
+    ui_->check_barebuh_enabled->setChecked(s.value(QLatin1String(BarebuhSettings::kEnabled), BarebuhSettings::kEnabledDefault).toBool());
+    ui_->edit_barebuh_endpoint->setText(s.value(QLatin1String(BarebuhSettings::kEndpoint), QLatin1String(BarebuhSettings::kEndpointDefault)).toString());
+    s.endGroup();
+  }
+#endif
+
   Init(ui_->layout_radiosettingspage->parentWidget());
 
 }
@@ -148,5 +166,15 @@ void RadioSettingsPage::Save() {
     s.setValue(QLatin1String(RadioBrowserSettings::kDefaultCountry), ui_->combo_default_country->currentData().toString());
     s.endGroup();
   }
+
+#ifdef HAVE_BAREBUH
+  {
+    Settings s;
+    s.beginGroup(QLatin1String(BarebuhSettings::kSettingsGroup));
+    s.setValue(QLatin1String(BarebuhSettings::kEnabled), ui_->check_barebuh_enabled->isChecked());
+    s.setValue(QLatin1String(BarebuhSettings::kEndpoint), ui_->edit_barebuh_endpoint->text().trimmed());
+    s.endGroup();
+  }
+#endif
 
 }

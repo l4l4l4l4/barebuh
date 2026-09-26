@@ -34,6 +34,9 @@
 #include "somafmservice.h"
 #include "radioparadiseservice.h"
 #include "radiobrowserservice.h"
+#ifdef HAVE_BAREBUH
+#  include "barebuhservice.h"
+#endif
 
 using std::make_shared;
 
@@ -53,6 +56,10 @@ RadioServices::RadioServices(const SharedPtr<TaskManager> task_manager,
   backend_->moveToThread(database->thread());
 
   QObject::connect(&*backend_, &RadioBackend::NewChannels, this, &RadioServices::GotChannelsFromBackend);
+  QObject::connect(&*backend_, &RadioBackend::ChannelsReplaced, this, [this](Song::Source) {
+    model_->Reset();
+    backend_->GetChannelsAsync();
+  });
 
   sort_model_->setSourceModel(model_);
   sort_model_->setSortRole(RadioModel::Role_SortText);
@@ -63,6 +70,9 @@ RadioServices::RadioServices(const SharedPtr<TaskManager> task_manager,
   AddService(new SomaFMService(task_manager, network_, this));
   AddService(new RadioParadiseService(task_manager, network_, this));
   AddService(new RadioBrowserService(task_manager, network_, this));
+#ifdef HAVE_BAREBUH
+  AddService(new BarebuhService(task_manager, network_, this));
+#endif
 
 }
 
@@ -118,7 +128,7 @@ void RadioServices::RefreshChannels() {
 
   channels_refresh_ = true;
   model_->Reset();
-  backend_->DeleteChannelsAsync();
+  backend_->GetChannelsAsync();
 
   for (RadioService *service : std::as_const(services_)) {
     service->GetChannels();
@@ -145,6 +155,6 @@ void RadioServices::GotChannelsFromService(const RadioChannelList &channels) {
   RadioService *service = qobject_cast<RadioService*>(sender());
   if (!service) return;
 
-  backend_->AddChannelsAsync(channels);
+  backend_->ReplaceChannelsAsync(service->source(), channels);
 
 }

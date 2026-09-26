@@ -22,6 +22,8 @@
 #include <QThread>
 #include <QMutexLocker>
 #include <QSqlDatabase>
+#include <QSet>
+#include <QDateTime>
 
 #include "includes/shared_ptr.h"
 #include "core/database.h"
@@ -64,6 +66,52 @@ void RadioBackend::AddChannelsAsync(const RadioChannelList &channels) {
   QMetaObject::invokeMethod(this, "AddChannels", Qt::QueuedConnection, Q_ARG(RadioChannelList, channels));
 }
 
+void RadioBackend::ReplaceChannelsAsync(const Song::Source source, const RadioChannelList &channels) {
+  QMetaObject::invokeMethod(this, [this, source, channels]() { ReplaceChannels(source, channels); }, Qt::QueuedConnection);
+}
+
+void RadioBackend::ReplaceChannels(const Song::Source source, const RadioChannelList &channels) {
+
+  QMutexLocker l(db_->Mutex());
+  QSqlDatabase db(db_->Connect());
+  ScopedTransaction transaction(&db);
+
+  SqlQuery delete_query(db);
+  delete_query.prepare(u"DELETE FROM radio_channels WHERE source = :source"_s);
+  delete_query.BindValue(u":source"_s, static_cast<int>(source));
+  if (!delete_query.Exec()) {
+    db_->ReportErrors(delete_query);
+    return;
+  }
+
+  SqlQuery insert_query(db);
+  insert_query.prepare(u"INSERT INTO radio_channels (source, name, url, thumbnail_url, station_id, provenance, health, forked, refreshed_at, health_expires_at) VALUES (:source, :name, :url, :thumbnail_url, :station_id, :provenance, :health, :forked, :refreshed_at, :health_expires_at)"_s);
+  QSet<QString> urls;
+  for (const RadioChannel &channel : channels) {
+    if (channel.source != source) return;
+    const QString url = channel.url.toString(QUrl::FullyEncoded);
+    if (urls.contains(url)) continue;
+    urls.insert(url);
+    insert_query.BindValue(u":source"_s, static_cast<int>(channel.source));
+    insert_query.BindValue(u":name"_s, channel.name);
+    insert_query.BindValue(u":url"_s, channel.url);
+    insert_query.BindValue(u":thumbnail_url"_s, channel.thumbnail_url);
+    insert_query.BindValue(u":station_id"_s, channel.station_id);
+    insert_query.BindValue(u":provenance"_s, channel.provenance);
+    insert_query.BindValue(u":health"_s, channel.health);
+    insert_query.BindValue(u":forked"_s, channel.forked);
+    insert_query.BindValue(u":refreshed_at"_s, channel.refreshed_at);
+    insert_query.BindValue(u":health_expires_at"_s, channel.health_expires_at);
+    if (!insert_query.Exec()) {
+      db_->ReportErrors(insert_query);
+      return;
+    }
+  }
+
+  transaction.Commit();
+  Q_EMIT ChannelsReplaced(source);
+}
+
 void RadioBackend::AddChannels(const RadioChannelList &channels) {
 
   QMutexLocker l(db_->Mutex());
@@ -71,13 +119,19 @@ void RadioBackend::AddChannels(const RadioChannelList &channels) {
   ScopedTransaction t(&db);
 
   SqlQuery q(db);
-  q.prepare(u"INSERT INTO radio_channels (source, name, url, thumbnail_url) VALUES (:source, :name, :url, :thumbnail_url)"_s);
+  q.prepare(u"INSERT INTO radio_channels (source, name, url, thumbnail_url, station_id, provenance, health, forked, refreshed_at, health_expires_at) VALUES (:source, :name, :url, :thumbnail_url, :station_id, :provenance, :health, :forked, :refreshed_at, :health_expires_at)"_s);
 
   for (const RadioChannel &channel : channels) {
     q.BindValue(u":source"_s, static_cast<int>(channel.source));
     q.BindValue(u":name"_s, channel.name);
     q.BindValue(u":url"_s, channel.url);
     q.BindValue(u":thumbnail_url"_s, channel.thumbnail_url);
+    q.BindValue(u":station_id"_s, channel.station_id);
+    q.BindValue(u":provenance"_s, channel.provenance);
+    q.BindValue(u":health"_s, channel.health);
+    q.BindValue(u":forked"_s, channel.forked);
+    q.BindValue(u":refreshed_at"_s, channel.refreshed_at);
+    q.BindValue(u":health_expires_at"_s, channel.health_expires_at);
     if (!q.Exec()) {
       db_->ReportErrors(q);
       return;
@@ -102,7 +156,7 @@ void RadioBackend::GetChannels() {
   QSqlDatabase db(db_->Connect());
 
   SqlQuery q(db);
-  q.prepare(u"SELECT source, name, url, thumbnail_url FROM radio_channels"_s);
+  q.prepare(u"SELECT source, name, url, thumbnail_url, station_id, provenance, health, forked, refreshed_at, health_expires_at FROM radio_channels"_s);
 
   if (!q.Exec()) {
     db_->ReportErrors(q);
@@ -116,6 +170,13 @@ void RadioBackend::GetChannels() {
     channel.name = q.value(1).toString();
     channel.url.setUrl(q.value(2).toString());
     channel.thumbnail_url.setUrl(q.value(3).toString());
+    channel.station_id = q.value(4).toString();
+    channel.provenance = q.value(5).toString();
+    channel.health = q.value(6).toString();
+    channel.forked = q.value(7).toBool();
+    channel.refreshed_at = q.value(8).toLongLong();
+    channel.health_expires_at = q.value(9).toLongLong();
+    if (channel.health_expires_at <= QDateTime::currentSecsSinceEpoch()) channel.health = u"unknown"_s;
     channels << channel;
   }
 

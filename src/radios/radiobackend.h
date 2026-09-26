@@ -38,16 +38,19 @@ class RadioBackend : public QObject {
   void ExitAsync();
 
   void AddChannelsAsync(const RadioChannelList &channels);
+  void ReplaceChannelsAsync(Song::Source source, const RadioChannelList &channels);
   void GetChannelsAsync();
   void DeleteChannelsAsync();
 
  private Q_SLOTS:
   void AddChannels(const RadioChannelList &channels);
+  void ReplaceChannels(Song::Source source, const RadioChannelList &channels);
   void GetChannels();
   void DeleteChannels();
 
  Q_SIGNALS:
   void NewChannels(const RadioChannelList &channels);
+  void ChannelsReplaced(Song::Source source);
   void ExitFinished();
 
  private Q_SLOTS:

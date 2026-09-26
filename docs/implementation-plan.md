@@ -146,7 +146,7 @@ one failed peer cannot exhaust other bulkheads.
 - Add `#cmakedefine HAVE_BAREBUH` to `src/config.h.in`.
 - Follow the current conditional `list(APPEND SOURCES HEADERS UI ...)` pattern;
   do not restore the removed `optional_source` helper.
-- Append `Barebuh = 13` to `Song::Source`, update source-count assertions and all
+- Append `Barebuh = 15` to `Song::Source`, update source-count assertions and all
   exhaustive source switches, and never renumber existing values.
 - Add guarded service, parser, constants, tests, icons, and resource entries.
 
