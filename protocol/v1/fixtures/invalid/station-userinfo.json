@@ -1,0 +1,16 @@
+{
+  "payload": {
+    "protocol": "oradio/1",
+    "kind": "station",
+    "station_id": "oradio:station:ed25519:If4x36FUomFia_hUBG_SJxt77UtqvkWqWId-9H-XIbk",
+    "sequence": 0,
+    "parents": [],
+    "issued_at": "2026-09-26T12:00:00Z",
+    "root_key": { "kty": "OKP", "crv": "Ed25519", "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo" },
+    "station": {
+      "name": "Unsafe FM",
+      "streams": [{ "url": "https://user:secret@stream.example.invalid/live", "transport": "https", "container": "audio/mpeg", "codec": "mp3" }]
+    }
+  },
+  "proof": { "alg": "Ed25519", "key_id": "root", "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" }
+}

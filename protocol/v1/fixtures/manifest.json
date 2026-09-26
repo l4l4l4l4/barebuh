@@ -1,0 +1,99 @@
+{
+  "protocol": "oradio/1",
+  "fixture_version": 1,
+  "validation_time": "2026-09-26T12:20:00Z",
+  "fixtures": [
+    {
+      "name": "station-genesis-valid",
+      "file": "valid/station-genesis.json",
+      "valid": true,
+      "kind": "station",
+      "canonical_payload_file": "canonical/station-genesis.jcs",
+      "record_id": "sha256:rE_Scy6U_N_OgySNH1GfMZUrG55X50TlXHHEj4DX148"
+    },
+    {
+      "name": "node-card-valid",
+      "file": "valid/node-card.json",
+      "valid": true,
+      "kind": "node",
+      "canonical_payload_file": "canonical/node-card.jcs",
+      "record_id": "sha256:Vl5XbECXpA_mVARKrD2Jy7uNfP7R8g6lEwew8pjD_Vs"
+    },
+    {
+      "name": "observation-valid",
+      "file": "valid/observation.json",
+      "valid": true,
+      "kind": "observation",
+      "canonical_payload_file": "canonical/observation.jcs",
+      "record_id": "sha256:TZuunNyk0s_gyjMGloZxW61om80fpUpFPq9BQXXkCzc"
+    },
+    {
+      "name": "station-tombstone-valid",
+      "file": "valid/station-tombstone.json",
+      "valid": true,
+      "kind": "station",
+      "canonical_payload_file": "canonical/station-tombstone.jcs",
+      "record_id": "sha256:ZfA5ve3CG9zlJGwEknY9ABjydIdx1Hn8zlqTS7pSzrE",
+      "materializable": true
+    },
+    {
+      "name": "critical-extension-valid-but-not-materializable",
+      "file": "valid/critical-extension.json",
+      "valid": true,
+      "kind": "station",
+      "canonical_payload_file": "canonical/critical-extension.jcs",
+      "record_id": "sha256:OM41z7oDJ2Q6GRRN1nVUDkyOwBWzTD5U3D1KeRFCK7o",
+      "materializable": false,
+      "unsupported_critical": ["future_feature"]
+    },
+    {
+      "name": "duplicate-member-invalid",
+      "file": "invalid/duplicate-member.json",
+      "valid": false,
+      "stage": "parse",
+      "message_contains": "duplicate member name"
+    },
+    {
+      "name": "unsafe-integer-invalid",
+      "file": "invalid/unsafe-integer.json",
+      "valid": false,
+      "stage": "parse",
+      "message_contains": "safe integer"
+    },
+    {
+      "name": "station-wrong-id-invalid",
+      "file": "invalid/station-wrong-id.json",
+      "valid": false,
+      "stage": "validation",
+      "message_contains": "station_id does not match root_key"
+    },
+    {
+      "name": "station-userinfo-invalid",
+      "file": "invalid/station-userinfo.json",
+      "valid": false,
+      "stage": "validation",
+      "message_contains": "must not contain userinfo"
+    },
+    {
+      "name": "node-insecure-api-invalid",
+      "file": "invalid/node-insecure-api.json",
+      "valid": false,
+      "stage": "validation",
+      "message_contains": "must use HTTPS"
+    },
+    {
+      "name": "observation-long-lifetime-invalid",
+      "file": "invalid/observation-long-lifetime.json",
+      "valid": false,
+      "stage": "validation",
+      "message_contains": "must not exceed one hour"
+    },
+    {
+      "name": "observation-future-skew-invalid",
+      "file": "invalid/observation-future-skew.json",
+      "valid": false,
+      "stage": "validation",
+      "message_contains": "future clock skew"
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+{"issued_at":"2026-09-26T13:00:00Z","kind":"station","parents":["sha256:rE_Scy6U_N_OgySNH1GfMZUrG55X50TlXHHEj4DX148"],"protocol":"oradio/1","root_key":{"crv":"Ed25519","kty":"OKP","x":"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"},"sequence":1,"station":{"deleted":true},"station_id":"oradio:station:ed25519:If4x36FUomFia_hUBG_SJxt77UtqvkWqWId-9H-XIbk"}

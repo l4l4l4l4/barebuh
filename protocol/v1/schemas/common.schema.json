@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://barebuh.example/protocol/v1/schemas/common.schema.json",
+  "title": "Barebuh oradio/1 common protocol definitions",
+  "$comment": "The oradio namespace and barebuh.example schema origin are provisional and do not finalize the public namespace decision.",
+  "$defs": {
+    "protocol": {
+      "const": "oradio/1"
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "maxLength": 20
+    },
+    "base64url32": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{43}$"
+    },
+    "base64url64": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{86}$"
+    },
+    "recordId": {
+      "type": "string",
+      "pattern": "^sha256:[A-Za-z0-9_-]{43}$"
+    },
+    "stationId": {
+      "type": "string",
+      "pattern": "^oradio:station:ed25519:[A-Za-z0-9_-]{43}$"
+    },
+    "nodeId": {
+      "type": "string",
+      "pattern": "^oradio:node:ed25519:[A-Za-z0-9_-]{43}$"
+    },
+    "rootKey": {
+      "type": "object",
+      "required": ["kty", "crv", "x"],
+      "properties": {
+        "kty": { "const": "OKP" },
+        "crv": { "const": "Ed25519" },
+        "x": { "$ref": "#/$defs/base64url32" }
+      },
+      "additionalProperties": true
+    },
+    "proof": {
+      "type": "object",
+      "required": ["alg", "key_id", "signature"],
+      "properties": {
+        "alg": { "const": "Ed25519" },
+        "key_id": { "const": "root" },
+        "signature": { "$ref": "#/$defs/base64url64" }
+      },
+      "additionalProperties": true
+    },
+    "critical": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    },
+    "stream": {
+      "type": "object",
+      "required": ["url", "transport", "container", "codec"],
+      "properties": {
+        "url": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "transport": { "enum": ["http", "https"] },
+        "container": { "type": "string", "minLength": 1, "maxLength": 127 },
+        "codec": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "bitrate_kbps": { "type": "integer", "minimum": 1, "maximum": 100000 }
+      },
+      "additionalProperties": true
+    },
+    "liveStation": {
+      "type": "object",
+      "required": ["name", "streams"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "short_name": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "homepage": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "languages": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$", "maxLength": 63 }
+        },
+        "country": { "type": "string", "pattern": "^[A-Z]{2}$" },
+        "tags": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 64 }
+        },
+        "streams": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/stream" }
+        }
+      },
+      "not": {
+        "properties": { "deleted": {} },
+        "required": ["deleted"]
+      },
+      "additionalProperties": true
+    },
+    "tombstone": {
+      "type": "object",
+      "required": ["deleted"],
+      "properties": {
+        "deleted": { "const": true }
+      },
+      "additionalProperties": false
+    },
+    "stationPayload": {
+      "type": "object",
+      "required": ["protocol", "kind", "station_id", "sequence", "parents", "issued_at", "root_key", "station"],
+      "properties": {
+        "protocol": { "$ref": "#/$defs/protocol" },
+        "kind": { "const": "station" },
+        "station_id": { "$ref": "#/$defs/stationId" },
+        "sequence": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "parents": {
+          "type": "array",
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/recordId" }
+        },
+        "issued_at": { "$ref": "#/$defs/instant" },
+        "root_key": { "$ref": "#/$defs/rootKey" },
+        "station": { "oneOf": [{ "$ref": "#/$defs/liveStation" }, { "$ref": "#/$defs/tombstone" }] },
+        "critical": { "$ref": "#/$defs/critical" }
+      },
+      "additionalProperties": true
+    },
+    "nodePayload": {
+      "type": "object",
+      "required": ["protocol", "kind", "node_id", "root_key", "operator_url", "api_bases", "supported_majors", "capabilities", "issued_at", "expires_at"],
+      "properties": {
+        "protocol": { "$ref": "#/$defs/protocol" },
+        "kind": { "const": "node" },
+        "node_id": { "$ref": "#/$defs/nodeId" },
+        "root_key": { "$ref": "#/$defs/rootKey" },
+        "operator_url": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "api_bases": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 2048 }
+        },
+        "supported_majors": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }
+        },
+        "capabilities": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 64 }
+        },
+        "issued_at": { "$ref": "#/$defs/instant" },
+        "expires_at": { "$ref": "#/$defs/instant" },
+        "critical": { "$ref": "#/$defs/critical" }
+      },
+      "additionalProperties": true
+    },
+    "observer": {
+      "type": "object",
+      "required": ["node_id", "root_key"],
+      "properties": {
+        "node_id": { "$ref": "#/$defs/nodeId" },
+        "root_key": { "$ref": "#/$defs/rootKey" }
+      },
+      "additionalProperties": true
+    },
+    "endpointReference": {
+      "type": "object",
+      "properties": {
+        "endpoint_index": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "stream_url_digest": { "$ref": "#/$defs/recordId" }
+      },
+      "oneOf": [
+        {
+          "properties": { "endpoint_index": {}, "stream_url_digest": {} },
+          "required": ["endpoint_index"],
+          "not": { "properties": { "stream_url_digest": {} }, "required": ["stream_url_digest"] }
+        },
+        {
+          "properties": { "endpoint_index": {}, "stream_url_digest": {} },
+          "required": ["stream_url_digest"],
+          "not": { "properties": { "endpoint_index": {} }, "required": ["endpoint_index"] }
+        }
+      ],
+      "additionalProperties": true
+    },
+    "observationPayload": {
+      "type": "object",
+      "required": ["protocol", "kind", "observer", "station_id", "endpoint", "observed_at", "expires_at", "outcome"],
+      "properties": {
+        "protocol": { "$ref": "#/$defs/protocol" },
+        "kind": { "const": "observation" },
+        "observer": { "$ref": "#/$defs/observer" },
+        "station_id": { "$ref": "#/$defs/stationId" },
+        "endpoint": { "$ref": "#/$defs/endpointReference" },
+        "observed_at": { "$ref": "#/$defs/instant" },
+        "expires_at": { "$ref": "#/$defs/instant" },
+        "outcome": { "enum": ["ok", "timeout", "dns_error", "tls_error", "http_error", "invalid_audio", "blocked"] },
+        "latency_ms": { "type": "integer", "minimum": 0, "maximum": 3600000 },
+        "http_status": { "type": "integer", "minimum": 100, "maximum": 599 },
+        "final_url": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "content_type": { "type": "string", "minLength": 1, "maxLength": 127 },
+        "codec": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "bitrate_kbps": { "type": "integer", "minimum": 1, "maximum": 100000 },
+        "diagnostic_code": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "critical": { "$ref": "#/$defs/critical" }
+      },
+      "additionalProperties": true
+    }
+  }
+}

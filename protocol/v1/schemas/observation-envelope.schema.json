@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://barebuh.example/protocol/v1/schemas/observation-envelope.schema.json",
+  "title": "Barebuh oradio/1 signed health observation envelope",
+  "type": "object",
+  "required": ["payload", "proof"],
+  "properties": {
+    "payload": { "$ref": "common.schema.json#/$defs/observationPayload" },
+    "proof": { "$ref": "common.schema.json#/$defs/proof" }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,35 @@
+{
+  "payload": {
+    "protocol": "oradio/1",
+    "kind": "station",
+    "station_id": "oradio:station:ed25519:If4x36FUomFia_hUBG_SJxt77UtqvkWqWId-9H-XIbk",
+    "sequence": 0,
+    "parents": [],
+    "issued_at": "2026-09-26T12:00:00Z",
+    "root_key": {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+    },
+    "station": {
+      "name": "Example É FM",
+      "short_name": "EXFM",
+      "homepage": "https://example.invalid/",
+      "languages": ["en-US"],
+      "country": "US",
+      "tags": ["jazz", "😀"],
+      "streams": [{
+        "url": "https://stream.example.invalid/live",
+        "transport": "https",
+        "container": "audio/mpeg",
+        "codec": "mp3",
+        "bitrate_kbps": 128
+      }]
+    }
+  },
+  "proof": {
+    "alg": "Ed25519",
+    "key_id": "root",
+    "signature": "1UY3xXJprKS4toix-RapD8D0_i96TUvbp1Lszi91zCwanPCLgShPVz8ZBlABj35JGgrTSDxnIx8NuMwW-4YnBA"
+  }
+}

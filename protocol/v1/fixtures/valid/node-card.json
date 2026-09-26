@@ -1,0 +1,23 @@
+{
+  "payload": {
+    "protocol": "oradio/1",
+    "kind": "node",
+    "node_id": "oradio:node:ed25519:If4x36FUomFia_hUBG_SJxt77UtqvkWqWId-9H-XIbk",
+    "root_key": {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+    },
+    "operator_url": "https://registry.example/operator",
+    "api_bases": ["https://registry.example/v1/"],
+    "supported_majors": [1],
+    "capabilities": ["records", "snapshot", "health-observations"],
+    "issued_at": "2026-09-26T12:00:00Z",
+    "expires_at": "2026-09-27T12:00:00Z"
+  },
+  "proof": {
+    "alg": "Ed25519",
+    "key_id": "root",
+    "signature": "mE2AIPt4sFAgwsFPv79nP_YM53YRT_oQRR6b5kjRR_avI1BzvsW2qLtdGWVFwjzywBMPoboJ95Hgv6VQoF_7Dw"
+  }
+}

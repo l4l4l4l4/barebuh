@@ -1,0 +1,30 @@
+{
+  "payload": {
+    "protocol": "oradio/1",
+    "kind": "observation",
+    "observer": {
+      "node_id": "oradio:node:ed25519:If4x36FUomFia_hUBG_SJxt77UtqvkWqWId-9H-XIbk",
+      "root_key": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+      }
+    },
+    "station_id": "oradio:station:ed25519:If4x36FUomFia_hUBG_SJxt77UtqvkWqWId-9H-XIbk",
+    "endpoint": { "endpoint_index": 0 },
+    "observed_at": "2026-09-26T12:15:00Z",
+    "expires_at": "2026-09-26T12:30:00Z",
+    "outcome": "ok",
+    "latency_ms": 84,
+    "http_status": 200,
+    "final_url": "https://stream.example.invalid/live",
+    "content_type": "audio/mpeg",
+    "codec": "mp3",
+    "bitrate_kbps": 128
+  },
+  "proof": {
+    "alg": "Ed25519",
+    "key_id": "root",
+    "signature": "RVAOO2YgsAByYjHr75MwzYmaN5J75FIUPI3ZpDlvVp7AYDIvW2nvTOPcTUYJhENIV2kLEzvNriGg5S6qordyCw"
+  }
+}

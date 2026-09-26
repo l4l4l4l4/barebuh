@@ -1,0 +1,9 @@
+{
+  "payload": {
+    "protocol": "oradio/1",
+    "kind": "station",
+    "station_id": "oradio:station:ed25519:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "root_key": { "kty": "OKP", "crv": "Ed25519", "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo" }
+  },
+  "proof": { "alg": "Ed25519", "key_id": "root", "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" }
+}

@@ -1,0 +1,22 @@
+{
+  "payload": {
+    "protocol": "oradio/1",
+    "kind": "station",
+    "station_id": "oradio:station:ed25519:If4x36FUomFia_hUBG_SJxt77UtqvkWqWId-9H-XIbk",
+    "sequence": 0,
+    "parents": [],
+    "issued_at": "2026-09-26T12:00:00Z",
+    "root_key": { "kty": "OKP", "crv": "Ed25519", "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo" },
+    "station": {
+      "name": "Extension FM",
+      "streams": [{ "url": "https://extension.example.invalid/live", "transport": "https", "container": "audio/ogg", "codec": "opus" }]
+    },
+    "future_feature": { "mode": "test" },
+    "critical": ["future_feature"]
+  },
+  "proof": {
+    "alg": "Ed25519",
+    "key_id": "root",
+    "signature": "Y_RzhHu3DVXJeANgksB0JLfJmtMXtQ1xbhIXaHWeLAC4aHdfJCaczq8842WNqiJDcZ1xZLFSWrpbxPC9xv8yCQ"
+  }
+}

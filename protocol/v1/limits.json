@@ -1,0 +1,32 @@
+{
+  "protocol": "oradio/1",
+  "profile_version": 1,
+  "bounded_json": {
+    "max_document_bytes": 65536,
+    "max_depth": 16,
+    "max_object_members": 64,
+    "max_array_items": 64,
+    "max_string_bytes": 4096
+  },
+  "station": {
+    "max_parents": 8,
+    "max_streams": 16,
+    "max_languages": 16,
+    "max_tags": 32,
+    "max_name_bytes": 200,
+    "max_url_bytes": 2048
+  },
+  "node": {
+    "max_api_bases": 8,
+    "max_capabilities": 32
+  },
+  "observation": {
+    "max_lifetime_seconds": 3600,
+    "max_future_skew_seconds": 300
+  },
+  "cryptography": {
+    "public_key_bytes": 32,
+    "signature_bytes": 64,
+    "digest_bytes": 32
+  }
+}
