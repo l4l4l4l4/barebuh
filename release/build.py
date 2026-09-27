@@ -91,6 +91,7 @@ def spdx_id(path: str) -> str:
 
 def build_sbom(archive: Path, output: Path, config: dict, version: str, commit: str, epoch: int) -> None:
     files = []
+    file_sha1_digests = []
     relationships = []
     with tarfile.open(archive, "r:xz") as source:
         for member in sorted(source.getmembers(), key=lambda item: item.name):
@@ -99,7 +100,9 @@ def build_sbom(archive: Path, output: Path, config: dict, version: str, commit: 
             extracted = source.extractfile(member)
             if extracted is None:
                 raise SystemExit(f"unable to read archived file: {member.name}")
-            checksum = hashlib.sha256(extracted.read()).hexdigest()
+            content = extracted.read()
+            checksum = hashlib.sha256(content).hexdigest()
+            file_sha1_digests.append(hashlib.sha1(content).hexdigest())
             identifier = spdx_id(member.name)
             files.append(
                 {
@@ -140,7 +143,7 @@ def build_sbom(archive: Path, output: Path, config: dict, version: str, commit: 
                 "filesAnalyzed": True,
                 "packageVerificationCode": {
                     "packageVerificationCodeValue": hashlib.sha1(
-                        "".join(sorted(item["checksums"][0]["checksumValue"] for item in files)).encode()
+                        "".join(sorted(file_sha1_digests)).encode()
                     ).hexdigest()
                 },
                 "licenseConcluded": config["upstream"]["license"],

@@ -58,7 +58,6 @@ namespace {
 constexpr char kSettingsGroup[] = "GeniusLyrics";
 constexpr char kOAuthAuthorizeUrl[] = "https://api.genius.com/oauth/authorize";
 constexpr char kOAuthAccessTokenUrl[] = "https://api.genius.com/oauth/token";
-constexpr char kOAuthRedirectUrl[] = "https://barebuh.example/oauth/";
 constexpr char kOAuthScope[] = "me";
 constexpr char kUrlSearch[] = "https://api.genius.com/search/";
 
@@ -86,7 +85,7 @@ GeniusLyricsProvider::GeniusLyricsProvider(const SharedPtr<NetworkAccessManager>
   oauth_->set_settings_group(QLatin1String(kSettingsGroup));
   oauth_->set_type(OAuthenticator::Type::Authorization_Code);
   oauth_->set_authorize_url(QUrl(QLatin1String(kOAuthAuthorizeUrl)));
-  oauth_->set_redirect_url(QUrl(QLatin1String(kOAuthRedirectUrl)));
+  oauth_->set_redirect_url(QUrl(QStringLiteral(GENIUS_OAUTH_REDIRECT_URL)));
   oauth_->set_access_token_url(QUrl(QLatin1String(kOAuthAccessTokenUrl)));
   oauth_->set_scope(QLatin1String(kOAuthScope));
   oauth_->set_use_local_redirect_server(true);

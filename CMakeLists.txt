@@ -21,6 +21,7 @@ include(cmake/Version.cmake)
 include(cmake/Barebuh.cmake)
 include(cmake/OptionalComponent.cmake)
 include(cmake/ApiCredentials.cmake)
+include(cmake/BarebuhExternalIntegrations.cmake)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   set(LINUX ON)

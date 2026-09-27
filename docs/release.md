@@ -49,6 +49,13 @@ fields are populated because this repository intentionally has no uploader.
 Adding one requires a separate reviewed change and explicit external-action
 authorization.
 
+OAuth and Discord integrations fail closed as well. Spotify can only be enabled
+when a client ID, client secret, and its registered redirect URL are supplied at
+configure time. Genius custom credentials use the local loopback redirect
+`http://localhost`; they do not claim a Barebuh-owned external endpoint. Discord
+can only be enabled with an explicitly supplied numeric Barebuh application ID,
+and the upstream Strawberry application ID is rejected.
+
 Do not create or alter remotes, tags, releases, package repositories, update
 feeds, OAuth clients, DNS, signing keys, notarization, Authenticode, or store
 submissions through this local workflow. Never reuse Strawberry credentials or

@@ -25,6 +25,72 @@ def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def package_verification_code(archive: Path) -> str:
+    file_digests = []
+    with tarfile.open(archive, "r:xz") as source:
+        for member in source.getmembers():
+            if not member.isfile():
+                continue
+            extracted = source.extractfile(member)
+            if extracted is None:
+                raise SystemExit(f"unable to read archived file: {member.name}")
+            file_digests.append(hashlib.sha1(extracted.read()).hexdigest())
+    return hashlib.sha1("".join(sorted(file_digests)).encode()).hexdigest()
+
+
+def check_forced_feature_gates() -> None:
+    gate_script = ROOT / "cmake" / "BarebuhExternalIntegrations.cmake"
+    cases = (
+        ("Spotify", ["-DENABLE_SPOTIFY=ON"], "Spotify requires an explicitly configured OAuth registration"),
+        (
+            "Spotify placeholder redirect",
+            [
+                "-DENABLE_SPOTIFY=ON",
+                "-DSPOTIFY_CLIENT_ID=test-client",
+                "-DSPOTIFY_CLIENT_SECRET=test-secret",
+                "-DSPOTIFY_OAUTH_REDIRECT_URL=https://barebuh.example/oauth/",
+            ],
+            "Spotify requires an explicitly configured OAuth registration",
+        ),
+        ("Discord", ["-DENABLE_DISCORD_RPC=ON"], "Discord Rich Presence requires an approved Barebuh application ID"),
+        (
+            "Discord upstream identity",
+            ["-DENABLE_DISCORD_RPC=ON", "-DDISCORD_APPLICATION_ID=1352351827206733974"],
+            "Discord Rich Presence requires an approved Barebuh application ID",
+        ),
+    )
+    for name, definitions, expected_message in cases:
+        result = subprocess.run(
+            ["cmake", *definitions, "-P", str(gate_script)],
+            cwd=ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        if result.returncode == 0 or expected_message not in result.stdout:
+            raise SystemExit(f"{name} forced enablement must fail without approved integration coordinates")
+
+    configured = subprocess.run(
+        [
+            "cmake",
+            "-DENABLE_SPOTIFY=ON",
+            "-DSPOTIFY_CLIENT_ID=test-client",
+            "-DSPOTIFY_CLIENT_SECRET=test-secret",
+            "-DSPOTIFY_OAUTH_REDIRECT_URL=http://127.0.0.1/callback",
+            "-DENABLE_DISCORD_RPC=ON",
+            "-DDISCORD_APPLICATION_ID=123456789012345678",
+            "-P",
+            str(gate_script),
+        ],
+        cwd=ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    if configured.returncode != 0:
+        raise SystemExit("explicitly configured local OAuth and Barebuh Discord coordinates must pass the feature gate")
+
+
 def build(output: Path) -> None:
     subprocess.run([sys.executable, str(BUILDER), "--output", str(output)], cwd=ROOT, check=True)
 
@@ -54,6 +120,8 @@ def check_policy() -> None:
     missing = [str(path.relative_to(ROOT)) for path in required if not path.is_file()]
     if missing:
         raise SystemExit("missing release files: " + ", ".join(missing))
+
+    check_forced_feature_gates()
 
 
 def main() -> int:
@@ -100,6 +168,13 @@ def main() -> int:
         sbom = json.loads((first / f"barebuh-{VERSION}.spdx.json").read_text(encoding="utf-8"))
         if sbom["spdxVersion"] != "SPDX-2.3" or not sbom["files"]:
             raise SystemExit("SPDX SBOM is incomplete")
+        actual_verification_code = sbom["packages"][0]["packageVerificationCode"]["packageVerificationCodeValue"]
+        expected_verification_code = package_verification_code(archive)
+        if actual_verification_code != expected_verification_code:
+            raise SystemExit(
+                "SPDX packageVerificationCode mismatch: "
+                f"expected {expected_verification_code}, got {actual_verification_code}"
+            )
 
     print("PASS: local release artifacts are deterministic, unsigned, and non-publishable")
     return 0
