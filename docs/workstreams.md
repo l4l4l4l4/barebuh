@@ -14,6 +14,8 @@ flowchart TD
   RV["t_32faafff<br/>Rebase verification: PASS"]
   I["t_c23dfde5<br/>Local client integration"]
   A1["t_844ca855<br/>Read-only release audit"]
+  PR["t_f5905823<br/>Pinned-commit implementation review"]
+  PV["t_14b350e7<br/>Pinned-commit safeguards verification"]
   H["t_8359c76b<br/>Branding and release hygiene"]
   R["t_e7edb4f5<br/>Independent release review"]
   V["t_ce5cefce<br/>Deterministic release verification"]
@@ -28,6 +30,9 @@ flowchart TD
   RV --> I
   I --> H
   A1 --> H
+  PR --> PV
+  PR --> H
+  PV --> H
   H --> R
   R --> V
   V --> O
@@ -36,6 +41,10 @@ flowchart TD
 
 ## Gate semantics
 
+- `t_f5905823` and `t_14b350e7` are the pre-completion review gate for exact
+  implementation commit `b8826cf5d7b607046731360644e546271f591844`.
+  They use active project profiles and keep `t_8359c76b` pending until both
+  return evidence.
 - Completed implementation is not approval. `t_e7edb4f5` must return an explicit
   PASS before `t_ce5cefce` may verify the same exact commit.
 - `t_ce5cefce` approves only an unsigned local candidate. It does not authorize
