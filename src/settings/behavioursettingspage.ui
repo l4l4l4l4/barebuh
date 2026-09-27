@@ -130,7 +130,7 @@
       <item>
        <widget class="QLabel" name="label_language">
         <property name="text">
-         <string>You will need to restart Strawberry if you change the language.</string>
+         <string>You will need to restart Barebuh if you change the language.</string>
         </property>
        </widget>
       </item>

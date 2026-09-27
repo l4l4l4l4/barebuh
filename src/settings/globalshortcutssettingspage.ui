@@ -203,7 +203,7 @@
          </sizepolicy>
         </property>
         <property name="text">
-         <string>You need to launch System Preferences and allow Strawberry to &quot;&lt;span style=&quot;font-style:italic&quot;&gt;control your computer&lt;/span&gt;&quot; to use global shortcuts in Strawberry.</string>
+         <string>You need to launch System Preferences and allow Barebuh to &quot;&lt;span style=&quot;font-style:italic&quot;&gt;control your computer&lt;/span&gt;&quot; to use global shortcuts in Barebuh.</string>
         </property>
         <property name="wordWrap">
          <bool>true</bool>

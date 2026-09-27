@@ -49,6 +49,6 @@ int gst_strawberry_fastspectrum_register_static() {
     "0.1",
     "GPL",
     "FastSpectrum",
-    "gst-strawberry-fastspectrum",
-    "https://www.strawberrymusicplayer.org");
+    "gst-barebuh-fastspectrum",
+    "https://barebuh.example/");
 }

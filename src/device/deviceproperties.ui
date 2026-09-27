@@ -232,7 +232,7 @@
            <item>
             <widget class="QLabel" name="label_3">
              <property name="text">
-              <string>Strawberry can automatically convert the music you copy to this device into a format that it can play.</string>
+              <string>Barebuh can automatically convert the music you copy to this device into a format that it can play.</string>
              </property>
              <property name="wordWrap">
               <bool>true</bool>
@@ -316,7 +316,7 @@
            <item>
             <widget class="QLabel" name="label_7">
              <property name="text">
-              <string>This device must be connected and opened before Strawberry can see what file formats it supports.</string>
+              <string>This device must be connected and opened before Barebuh can see what file formats it supports.</string>
              </property>
              <property name="wordWrap">
               <bool>true</bool>

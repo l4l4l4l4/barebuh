@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Strawberry Music Player</string>
+   <string>Barebuh Music Player</string>
   </property>
   <widget class="QWidget" name="centralWidget">
    <layout class="QVBoxLayout" name="layout_centralWidget">
@@ -648,7 +648,7 @@
      <normaloff>:/icons/64x64/strawberry.png</normaloff>:/icons/64x64/strawberry.png</iconset>
    </property>
    <property name="text">
-    <string>&amp;About Strawberry</string>
+    <string>&amp;About Barebuh</string>
    </property>
    <property name="shortcut">
     <string>F1</string>

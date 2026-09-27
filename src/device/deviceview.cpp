@@ -348,7 +348,7 @@ void DeviceView::Forget() {
   if (device_manager_->GetLister(device_idx) && device_manager_->GetLister(device_idx)->AskForScan(unique_id)) {
     ScopedPtr<QMessageBox> dialog(new QMessageBox(
         QMessageBox::Question, tr("Forget device"),
-        tr("Forgetting a device will remove it from this list and Strawberry will have to rescan all the songs again next time you connect it."),
+        tr("Forgetting a device will remove it from this list and Barebuh will have to rescan all the songs again next time you connect it."),
         QMessageBox::Cancel, this));
     QPushButton *forget = dialog->addButton(tr("Forget device"), QMessageBox::DestructiveRole);
     dialog->exec();

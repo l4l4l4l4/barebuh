@@ -1427,7 +1427,7 @@ void TagReaderTagLib::SetUnsyncLyricsFrame(const QString &value, TagLib::ID3v2::
   // If no frames stored create empty frame
   if (frames_buffer.isEmpty()) {
     TagLib::ID3v2::UnsynchronizedLyricsFrame frame(TagLib::String::UTF8);
-    frame.setDescription("Strawberry editor");
+    frame.setDescription("Barebuh editor");
     frames_buffer.push_back(frame.render());
   }
 

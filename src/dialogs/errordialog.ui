@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Strawberry Error</string>
+   <string>Barebuh Error</string>
   </property>
   <property name="windowIcon">
    <iconset resource="../../data/icons.qrc">

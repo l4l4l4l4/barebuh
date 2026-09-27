@@ -39,8 +39,8 @@ using namespace Qt::Literals::StringLiterals;
 namespace {
 
 // Same schema name and attributes as the GNOME Keyring backend.
-constexpr char kSchemaName[] = "org.strawberrymusicplayer.Password";
-constexpr char kApplication[] = "strawberry";
+constexpr char kSchemaName[] = "org.barebuh.Password";
+constexpr char kApplication[] = "barebuh";
 
 const SecretSchema *Schema() {
 
@@ -223,7 +223,7 @@ void CredentialsBackendLibSecret::ReadPassword(const QString &service, const Res
 void CredentialsBackendLibSecret::SavePassword(const QString &service, const QString &password, const ResultCallback &callback) {
 
   const QByteArray service_utf8 = service.toUtf8();
-  const QByteArray label = QStringLiteral("Strawberry %1 password").arg(service).toUtf8();
+  const QByteArray label = QStringLiteral("Barebuh %1 password").arg(service).toUtf8();
   const QByteArray password_utf8 = password.toUtf8();
 
   secret_password_store(Schema(), SECRET_COLLECTION_DEFAULT, label.constData(), password_utf8.constData(), cancellable_, StoreFinished, new ResultCallData{ guard_, callback }, "application", kApplication, "service", service_utf8.constData(), nullptr);

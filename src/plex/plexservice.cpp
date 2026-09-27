@@ -68,7 +68,7 @@ const Song::Source PlexService::kSource = Song::Source::Plex;
 namespace {
 constexpr char kSongsTable[] = "plex_songs";
 constexpr char kPlexTvUrl[] = "https://plex.tv";
-constexpr char kClientProduct[] = "Strawberry";
+constexpr char kClientProduct[] = "Barebuh";
 constexpr int kPinPollIntervalMsec = 2000;
 constexpr int kPinMaxPolls = 150;  // 5 minutes
 constexpr int kConnectionTestTimeoutMsec = 3000;  // Keep this short: we may need to try several candidates in sequence.

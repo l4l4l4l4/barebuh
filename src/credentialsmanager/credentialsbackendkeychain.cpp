@@ -29,7 +29,7 @@ using namespace Qt::Literals::StringLiterals;
 
 namespace {
 
-constexpr char kServiceNamePrefix[] = "Strawberry/";
+constexpr char kServiceNamePrefix[] = "Barebuh/";
 
 QString ErrorString(const OSStatus status) {
 
@@ -116,7 +116,7 @@ CredentialsResult CredentialsBackendKeychain::SavePassword(const QString &servic
   OSStatus status = SecItemUpdate(query, attributes);
   if (status == errSecItemNotFound) {
     CFDictionarySetValue(query, kSecValueData, data);
-    DictionarySetString(query, kSecAttrLabel, QStringLiteral("Strawberry %1 password").arg(service));
+    DictionarySetString(query, kSecAttrLabel, QStringLiteral("Barebuh %1 password").arg(service));
     status = SecItemAdd(query, nullptr);
   }
 

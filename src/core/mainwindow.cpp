@@ -267,38 +267,7 @@ const int kTrackPositionUpdateTimeMs = 1000;
 
 #ifdef HAVE_QTSPARKLE
 namespace {
-
-#  if defined(__APPLE__)
-#    if defined(__x86_64__)
-constexpr char QTSPARKLE_URL[] = "https://www.strawberrymusicplayer.org/sparkle-macos-x86_64";
-#    elif defined(__aarch64__)
-constexpr char QTSPARKLE_URL[] = "https://www.strawberrymusicplayer.org/sparkle-macos-arm64";
-#    else
-#      error "Unsupported macOS arch for QtSparkle"
-#    endif
-
-#  elif defined(__MINGW32__)
-#    if defined(__x86_64__)
-constexpr char QTSPARKLE_URL[] = "https://www.strawberrymusicplayer.org/sparkle-windows-mingw-x64";
-#    elif defined(__i686__)
-constexpr char QTSPARKLE_URL[] = "https://www.strawberrymusicplayer.org/sparkle-windows-mingw-x86";
-#    else
-#      error "Unsupported MinGW arch for QtSparkle"
-#    endif
-
-#  elif defined(_MSC_VER)
-#    if defined(_WIN64)
-constexpr char QTSPARKLE_URL[] = "https://www.strawberrymusicplayer.org/sparkle-windows-msvc-x64";
-#    elif defined(_WIN32)
-constexpr char QTSPARKLE_URL[] = "https://www.strawberrymusicplayer.org/sparkle-windows-msvc-x86";
-#    else
-#      error "Unsupported MSVC arch for QtSparkle"
-#    endif
-
-#  else
-#    error "Unsupported OS for QtSparkle"
-#  endif  // OS
-
+constexpr char QTSPARKLE_URL[] = "";
 }  // namespace
 #endif  // HAVE_QTSPARKLE
 
@@ -1211,32 +1180,11 @@ MainWindow::MainWindow(Application *app,
       rosetta_message->set_settings_group(QLatin1String(MainWindowSettings::kSettingsGroup));
       rosetta_message->set_do_not_show_message_again(QLatin1String(MainWindowSettings::kIgnoreRosetta));
       rosetta_message->setAttribute(Qt::WA_DeleteOnClose);
-      rosetta_message->ShowMessage(tr("Strawberry running under Rosetta"), tr("You are running Strawberry under Rosetta. Running Strawberry under Rosetta is unsupported and known to have issues. You should download Strawberry for the correct CPU architecture from %1").arg(QLatin1String("<a href=\"https://downloads.strawberrymusicplayer.org/\">downloads.strawberrymusicplayer.org</a>")), IconLoader::Load(u"dialog-warning"_s));
+      rosetta_message->ShowMessage(tr("Barebuh running under Rosetta"), tr("You are running Barebuh under Rosetta. This configuration is unsupported and known to have issues; use a build for the correct CPU architecture."), IconLoader::Load(u"dialog-warning"_s));
     }
   }
 #endif
 
-  {
-    bool asked_permission = true;
-    Settings s;
-#ifdef HAVE_QTSPARKLE
-    s.beginGroup("QtSparkle");
-    asked_permission = s.value(MainWindowSettings::kAskedPermission, false).toBool();
-    s.endGroup();
-#endif
-    if (asked_permission) {
-      s.beginGroup(MainWindowSettings::kSettingsGroup);
-      const bool do_not_show_sponsor_message = s.value(MainWindowSettings::kDoNotShowSponsorMessage, MainWindowSettings::kDefaultDoNotShowSponsorMessage).toBool();
-      s.endGroup();
-      if (!do_not_show_sponsor_message) {
-        MessageDialog *sponsor_message = new MessageDialog(this);
-        sponsor_message->set_settings_group(QLatin1String(MainWindowSettings::kSettingsGroup));
-        sponsor_message->set_do_not_show_message_again(QLatin1String(MainWindowSettings::kDoNotShowSponsorMessage));
-        sponsor_message->setAttribute(Qt::WA_DeleteOnClose);
-        sponsor_message->ShowMessage(tr("Sponsoring Strawberry"), tr("Strawberry is free and open source software. If you like Strawberry, please consider sponsoring the project. For more information about sponsorship see our website %1").arg(u"<a href= \"https://www.strawberrymusicplayer.org/\">www.strawberrymusicplayer.org</a>"_s), IconLoader::Load(u"dialog-information"_s));
-      }
-    }
-  }
 
   qLog(Debug) << "Started" << QThread::currentThread();
   initialized_ = true;
@@ -1578,7 +1526,7 @@ void MainWindow::PlaylistsLoaded() {
 
 void MainWindow::MediaStopped() {
 
-  setWindowTitle(u"Strawberry Music Player"_s);
+  setWindowTitle(u"Barebuh Music Player"_s);
 
   ui_->action_stop->setEnabled(false);
   ui_->action_stop_after_this_track->setEnabled(false);
@@ -2004,11 +1952,11 @@ void MainWindow::UpdateTrackSliderPosition() {
 void MainWindow::UpdateTaskbarProgress(const bool visible, const double progress) {
 
   QVariantMap map;
-  QDBusMessage msg = QDBusMessage::createSignal(u"/org/strawberrymusicplayer/strawberry"_s, u"com.canonical.Unity.LauncherEntry"_s, u"Update"_s);
+  QDBusMessage msg = QDBusMessage::createSignal(u"/org/barebuh/Barebuh"_s, u"com.canonical.Unity.LauncherEntry"_s, u"Update"_s);
 
   map.insert(u"progress-visible"_s, visible);
   map.insert(u"progress"_s, progress);
-  msg << u"application://org.strawberrymusicplayer.strawberry.desktop"_s << map;
+  msg << u"application://org.barebuh.Barebuh.desktop"_s << map;
 
   QDBusConnection::sessionBus().send(msg);
 
@@ -3267,7 +3215,7 @@ void MainWindow::CheckFullRescanRevisions() {
 
   // If we have any...
   if (!reasons.isEmpty()) {
-    QString message = tr("The version of Strawberry you've just updated to requires a full collection rescan because of the new features listed below:") + u"<ul>"_s;
+    QString message = tr("The version of Barebuh you've just updated to requires a full collection rescan because of the new features listed below:") + u"<ul>"_s;
     for (const QString &reason : reasons) {
       message += "<li>"_L1 + reason + "</li>"_L1;
     }

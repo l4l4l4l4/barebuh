@@ -17,7 +17,7 @@
    <item>
     <widget class="QLabel" name="label_info">
      <property name="text">
-      <string>Strawberry can show a message when the track changes.</string>
+      <string>Barebuh can show a message when the track changes.</string>
      </property>
     </widget>
    </item>
@@ -354,7 +354,7 @@
         </item>
         <item>
          <property name="text">
-          <string>Strawberry Red</string>
+          <string>Barebuh Violet</string>
          </property>
         </item>
         <item>
@@ -396,7 +396,7 @@
          <item>
           <widget class="QRadioButton" name="richpresence_listening_to_app">
            <property name="text">
-            <string>Strawberry</string>
+            <string>Barebuh</string>
            </property>
           </widget>
          </item>

@@ -1,115 +1,73 @@
-# Contribution guidelines
+# Contributing to Barebuh
 
-Strawberry is an free and open-source project, it is possible and encouraged to participate in the development.
-You can also participate by answering questions, reporting bugs or helping with documentation.
+Barebuh is an independent GPL-3.0-or-later fork of Strawberry Music Player.
+The destination forge and public contribution workflow are unresolved, so this
+document defines the local engineering contract without inventing a remote.
 
+## Before changing code
 
-## Submitting a pull request
+1. Open or reference one narrowly scoped issue or Kanban task.
+2. Create a dedicated branch and linked worktree from the intended base.
+3. Keep Strawberry's existing copyright, authorship, and license notices.
+4. Add attribution only for work you actually authored.
+5. Never commit credentials, signing material, generated release artifacts, or
+   build directories.
 
-You should start by creating a fork of the Strawberry repository using the GitHub
-fork button, after that you can clone the repository from your fork.
-Replace "username" with your own.
+“Barebuh” is the canonical product name. “Dingleberry” may appear only when
+explaining the historical alias; do not use it in package names, identifiers,
+new UI strings, or release artifacts.
 
+## Code and commits
 
-### Clone the repository
+Use the existing C++17/Qt style and `.clang-format`. Keep each change atomic and
+avoid unrelated formatting. Commit subjects follow the inherited convention:
+`ClassName: short explanation`, or a concise subject without a class name when
+several components change. Do not add a trailing period.
 
-    git clone git@github.com:username/strawberry.git
-    cd strawberry
+For protocol changes, update schemas, fixtures, both conformance
+implementations, and normative documentation together. Provisional namespaces
+must remain visibly provisional until their ownership is approved.
 
+## Verification
 
-### Setup the remote
+Run the checks relevant to the change. Release-affecting changes must run the
+full local gate:
 
-    git remote add upstream git@github.com:strawberrymusicplayer/strawberry.git
-
-
-### Create a new branch
-
-This creates a new branch from the master branch that you use for specific
-changes.
-
-    git checkout -b your-branch
-
-
-### Stage changes
-
-Once you've finished working on a specific change, stage the changes for
-a specific commit.
-
-Always keep your commits relevant to the pull request, and each commit as
-small as possible.
-
-    git add -p
-
-
-### Commit changes
-
-    git commit
-
-
-### Commit messages
-
-The first line should start with the name of the class that is changed
-followed by a colon then a short explanation of the commit.
-Don't use a trailing period after the first line.
-If this change affects more than one class, omit the class name and write a
-more general message.
-
-You only need to include a main description (body) for larger changes
-where the one line is not enough to describe everything.
-The main description starts after two newlines, it is normal prose and
-should use normal punctuation and capital letters where appropriate.
-It should explain exactly what's changed, why it's changed,
-and what bugs were fixed.
-
-An example of the expected format for git commit messages is as follows:
-
-```
-StretchHeaderView: Set default section size
-
-As of Qt 6.6.1, style changes are resetting the column sizes. To prevent this, we set a default section size.
-
-Fixes #1328
+```sh
+make check
 ```
 
+C++ changes also require feature-enabled and feature-disabled builds:
 
-### Push the changes to GitHub
+```sh
+cmake -S . -B build-on -DBUILD_WERROR=ON -DENABLE_BAREBUH=ON
+cmake --build build-on --parallel
+cmake --build build-on --target build_tests
+ctest --test-dir build-on/tests --output-on-failure
 
-Once you've finished working on the changes, push the branch
-to the Git repository and open a new pull request.
+cmake -S . -B build-off -DBUILD_WERROR=ON -DENABLE_BAREBUH=OFF
+cmake --build build-off --parallel
+```
 
+Format only changed C++ files and inspect the complete diff before committing.
 
-    git push origin your-branch
+## Upstream relationship
 
+Generic fixes should remain easy to forward to Strawberry. Upstream-sync work
+must record old and new upstream commits, preserve the fork's additive feature
+gate, review database migrations and branding-sensitive paths, and rerun all
+release gates. Never force-push a published default or release branch.
 
-### Update your fork's master branch
+Until a user-owned remote is explicitly chosen, the existing `origin` is
+upstream-only in practice: fetch is permitted, push is not. Do not create,
+rename, or replace remotes as part of an ordinary contribution.
 
-    git checkout master
-    git pull --rebase origin master
-    git fetch upstream
-    git merge upstream/master
-    git push origin master
+## Security and publication
 
+Follow [`SECURITY.md`](SECURITY.md) for vulnerabilities. Remote publication,
+release signing, package upload, update feeds, OAuth registrations, and public
+announcements require separate human authorization. `make publish` is a
+fail-closed guard, not a release command.
 
-### Update your branch
-
-    git checkout your-branch
-    git fetch upstream
-    git rebase upstream/master
-    git push origin your-branch --force-with-lease
-
-
-### Rebase your branch
-
-If you need fix any issues with your commits, you need to rebase your
-branch to squash any commits, or to change the commit message.
-
-    git checkout your-branch
-    git log
-    git rebase -i commit_sha~
-    git push origin your-branch --force-with-lease
-
-
-### Delete your fork
-
-If you do not plan to work more on Strawberry, please delete your fork from GitHub
-once the pull requests are merged.
+No CLA or DCO policy has been selected. A public contribution process must make
+that decision before accepting external submissions.

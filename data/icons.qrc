@@ -72,8 +72,8 @@
         <file>icons/128x128/speaker.png</file>
         <file>icons/128x128/star-grey.png</file>
         <file>icons/128x128/star.png</file>
-        <file>icons/128x128/strawberry.png</file>
-        <file>icons/128x128/strawberry-grey.png</file>
+        <file alias="icons/128x128/strawberry.png">icons/128x128/barebuh.png</file>
+        <file alias="icons/128x128/strawberry-grey.png">icons/128x128/barebuh-grey.png</file>
         <file>icons/128x128/tools-wizard.png</file>
         <file>icons/128x128/view-choose.png</file>
         <file>icons/128x128/view-fullscreen.png</file>
@@ -175,8 +175,8 @@
         <file>icons/64x64/speaker.png</file>
         <file>icons/64x64/star-grey.png</file>
         <file>icons/64x64/star.png</file>
-        <file>icons/64x64/strawberry.png</file>
-        <file>icons/64x64/strawberry-grey.png</file>
+        <file alias="icons/64x64/strawberry.png">icons/64x64/barebuh.png</file>
+        <file alias="icons/64x64/strawberry-grey.png">icons/64x64/barebuh-grey.png</file>
         <file>icons/64x64/tools-wizard.png</file>
         <file>icons/64x64/view-choose.png</file>
         <file>icons/64x64/view-fullscreen.png</file>
@@ -282,8 +282,8 @@
         <file>icons/48x48/speaker.png</file>
         <file>icons/48x48/star-grey.png</file>
         <file>icons/48x48/star.png</file>
-        <file>icons/48x48/strawberry.png</file>
-        <file>icons/48x48/strawberry-grey.png</file>
+        <file alias="icons/48x48/strawberry.png">icons/48x48/barebuh.png</file>
+        <file alias="icons/48x48/strawberry-grey.png">icons/48x48/barebuh-grey.png</file>
         <file>icons/48x48/tools-wizard.png</file>
         <file>icons/48x48/view-choose.png</file>
         <file>icons/48x48/view-fullscreen.png</file>
@@ -389,8 +389,8 @@
         <file>icons/32x32/speaker.png</file>
         <file>icons/32x32/star-grey.png</file>
         <file>icons/32x32/star.png</file>
-        <file>icons/32x32/strawberry.png</file>
-        <file>icons/32x32/strawberry-grey.png</file>
+        <file alias="icons/32x32/strawberry.png">icons/32x32/barebuh.png</file>
+        <file alias="icons/32x32/strawberry-grey.png">icons/32x32/barebuh-grey.png</file>
         <file>icons/32x32/tools-wizard.png</file>
         <file>icons/32x32/view-choose.png</file>
         <file>icons/32x32/view-fullscreen.png</file>
@@ -496,8 +496,8 @@
         <file>icons/22x22/speaker.png</file>
         <file>icons/22x22/star-grey.png</file>
         <file>icons/22x22/star.png</file>
-        <file>icons/22x22/strawberry.png</file>
-        <file>icons/22x22/strawberry-grey.png</file>
+        <file alias="icons/22x22/strawberry.png">icons/22x22/barebuh.png</file>
+        <file alias="icons/22x22/strawberry-grey.png">icons/22x22/barebuh-grey.png</file>
         <file>icons/22x22/tools-wizard.png</file>
         <file>icons/22x22/view-choose.png</file>
         <file>icons/22x22/view-fullscreen.png</file>

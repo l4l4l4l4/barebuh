@@ -53,7 +53,7 @@ namespace {
 
 constexpr char kOAuthAuthorizeUrl[] = "https://accounts.spotify.com/authorize";
 constexpr char kOAuthAccessTokenUrl[] = "https://accounts.spotify.com/api/token";
-constexpr char kOAuthRedirectUrl[] = "https://oauth.strawberrymusicplayer.org/";
+constexpr char kOAuthRedirectUrl[] = "https://barebuh.example/oauth/";
 constexpr char kOAuthScope[] = "user-follow-read user-follow-modify user-library-read user-library-modify streaming";
 constexpr char kArtistsSongsTable[] = "spotify_artists_songs";
 constexpr char kAlbumsSongsTable[] = "spotify_albums_songs";

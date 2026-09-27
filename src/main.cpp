@@ -146,14 +146,14 @@ int main(int argc, char *argv[]) {
   mac::MacMain();
 #endif
 
-  QCoreApplication::setApplicationName(u"Strawberry"_s);
-  QCoreApplication::setOrganizationName(u"Strawberry"_s);
+  QCoreApplication::setApplicationName(QLatin1String(BAREBUH_PRODUCT_NAME));
+  QCoreApplication::setOrganizationName(QLatin1String(BAREBUH_ORGANIZATION_NAME));
   QCoreApplication::setApplicationVersion(QStringLiteral(STRAWBERRY_VERSION_DISPLAY));
-  QCoreApplication::setOrganizationDomain(u"strawberrymusicplayer.org"_s);
+  QCoreApplication::setOrganizationDomain(QLatin1String(BAREBUH_ORGANIZATION_DOMAIN));
 
   // This makes us show up nicely in gnome-volume-control
-  g_set_application_name("Strawberry");
-  g_setenv("PULSE_PROP_application.icon_name", "strawberry", TRUE);
+  g_set_application_name(BAREBUH_PRODUCT_NAME);
+  g_setenv("PULSE_PROP_application.icon_name", "barebuh", TRUE);
   g_setenv("PULSE_PROP_media.role", "music", TRUE);
 
   RegisterMetaTypes();
@@ -173,7 +173,7 @@ int main(int argc, char *argv[]) {
     logging::SetLevels(options.log_levels());
     if (!single_app.isPrimaryInstance()) {
       if (options.is_empty()) {
-        qLog(Info) << "Strawberry is already running - activating existing window (1)";
+        qLog(Info) << "Barebuh is already running - activating existing window (1)";
       }
       if (!single_app.sendMessage(options.Serialize())) {
         qLog(Error) << "Could not send message to primary instance.";
@@ -188,7 +188,7 @@ int main(int argc, char *argv[]) {
 #endif
 
   // Output the version, so when people attach log output to bug reports they don't have to tell us which version they're using.
-  qLog(Info) << "Strawberry" << STRAWBERRY_VERSION_DISPLAY << "Qt" << QLibraryInfo::version().toString();
+  qLog(Info) << BAREBUH_PRODUCT_NAME << STRAWBERRY_VERSION_DISPLAY << "Qt" << QLibraryInfo::version().toString();
   qLog(Info) << QStringLiteral("%1 %2 - (%3 %4) [%5]").arg(QSysInfo::prettyProductName(), QSysInfo::productVersion(), QSysInfo::kernelType(), QSysInfo::kernelVersion(), QSysInfo::currentCpuArchitecture());
 
   // Seed the random number generators.
@@ -199,15 +199,15 @@ int main(int argc, char *argv[]) {
   Utilities::IncreaseFDLimit();
 #endif
 
-  QGuiApplication::setApplicationDisplayName(u"Strawberry Music Player"_s);
-  QGuiApplication::setDesktopFileName(u"org.strawberrymusicplayer.strawberry"_s);
+  QGuiApplication::setApplicationDisplayName(QLatin1String(BAREBUH_DISPLAY_NAME));
+  QGuiApplication::setDesktopFileName(QLatin1String(BAREBUH_APPLICATION_ID));
   QGuiApplication::setQuitOnLastWindowClosed(false);
 
   QApplication a(argc, argv);
 
 #ifdef Q_OS_LINUX
   if (Utilities::IsWSL()) {
-    const QString message = u"Strawberry is not supported when running under the Windows Subsystem for Linux (WSL). Please use the native Windows version instead."_s;
+    const QString message = u"Barebuh is not supported when running under the Windows Subsystem for Linux (WSL)."_s;
     qLog(Error) << message;
     QMessageBox::critical(nullptr, u"Unsupported environment"_s, message);
     return 1;
@@ -217,7 +217,7 @@ int main(int argc, char *argv[]) {
   KDSingleApplication single_app(QCoreApplication::applicationName().toLower(), KDSingleApplication::Option::IncludeUsernameInSocketName);
   if (!single_app.isPrimaryInstance()) {
     if (options.is_empty()) {
-      qLog(Info) << "Strawberry is already running - activating existing window (2)";
+      qLog(Info) << "Barebuh is already running - activating existing window (2)";
     }
     if (!single_app.sendMessage(options.Serialize())) {
       qLog(Error) << "Could not send message to primary instance.";

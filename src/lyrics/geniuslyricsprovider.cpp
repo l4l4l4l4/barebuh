@@ -58,7 +58,7 @@ namespace {
 constexpr char kSettingsGroup[] = "GeniusLyrics";
 constexpr char kOAuthAuthorizeUrl[] = "https://api.genius.com/oauth/authorize";
 constexpr char kOAuthAccessTokenUrl[] = "https://api.genius.com/oauth/token";
-constexpr char kOAuthRedirectUrl[] = "https://oauth.strawberrymusicplayer.org/";
+constexpr char kOAuthRedirectUrl[] = "https://barebuh.example/oauth/";
 constexpr char kOAuthScope[] = "me";
 constexpr char kUrlSearch[] = "https://api.genius.com/search/";
 

@@ -111,7 +111,7 @@ void WplParser::Save(const QString &playlist_name, const SongList &songs, QIODev
 
   {
     StreamElement head(u"head"_s, &writer);
-    WriteMeta("Generator"_L1, "Strawberry -- "_L1 + QLatin1String(STRAWBERRY_VERSION_DISPLAY), &writer);
+    WriteMeta("Generator"_L1, "Barebuh -- "_L1 + QLatin1String(STRAWBERRY_VERSION_DISPLAY), &writer);
     WriteMeta("ItemCount"_L1, QString::number(songs.count()), &writer);
   }
 

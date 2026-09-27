@@ -77,8 +77,3 @@ else()
   endif()
   set(STRAWBERRY_VERSION_RPM_R   "1")
 endif()
-
-message(STATUS "Strawberry Version:")
-message(STATUS "Display:  ${STRAWBERRY_VERSION_DISPLAY}")
-message(STATUS "Package:  ${STRAWBERRY_VERSION_PACKAGE}")
-message(STATUS "RPM:      ${STRAWBERRY_VERSION_RPM_V}-${STRAWBERRY_VERSION_RPM_R}")

@@ -30,7 +30,7 @@
       <item>
        <widget class="QLabel" name="label_authentication">
         <property name="text">
-         <string>Click Log in to open the Plex website in your browser and authorize Strawberry.</string>
+         <string>Click Log in to open the Plex website in your browser and authorize Barebuh.</string>
         </property>
         <property name="wordWrap">
          <bool>true</bool>

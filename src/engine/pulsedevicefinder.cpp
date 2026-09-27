@@ -55,7 +55,7 @@ bool PulseDeviceFinder::Reconnect() {
     pa_context_unref(context_);
   }
 
-  context_ = pa_context_new(pa_mainloop_get_api(mainloop_), "Strawberry device finder");
+  context_ = pa_context_new(pa_mainloop_get_api(mainloop_), "Barebuh device finder");
   if (!context_) {
     qLog(Warning) << "Failed to create pulseaudio context";
     return false;
