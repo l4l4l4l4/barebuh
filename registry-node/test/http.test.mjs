@@ -3,6 +3,7 @@
 
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
+import { connect } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -33,6 +34,35 @@ async function startServer(t, { migrated = true } = {}) {
   t.after(() => new Promise(resolve => server.close(resolve)));
   const { port } = server.address();
   return `http://127.0.0.1:${port}`;
+}
+
+// Sends a raw request-target over a plain socket so malformed targets reach the server exactly
+// as a hostile client would send them (fetch and curl refuse or normalize several of these).
+function rawRequest(port, requestTarget, { method = "GET" } = {}) {
+  return new Promise((resolve, reject) => {
+    const socket = connect({ host: "127.0.0.1", port });
+    let received = "";
+    socket.setTimeout(5_000, () => socket.destroy(new Error("raw request timed out")));
+    socket.on("connect", () => {
+      socket.write(`${method} ${requestTarget} HTTP/1.1\r\nhost: 127.0.0.1\r\nconnection: close\r\n\r\n`);
+    });
+    socket.on("data", chunk => {
+      received += chunk.toString("latin1");
+    });
+    socket.on("end", () => resolve(received));
+    socket.on("close", () => resolve(received));
+    socket.on("error", reject);
+  });
+}
+
+function statusLine(rawResponse) {
+  return rawResponse.split("\r\n")[0];
+}
+
+function jsonBody(rawResponse) {
+  const separator = rawResponse.indexOf("\r\n\r\n");
+  assert.notEqual(separator, -1, `raw response has no header/body separator: ${JSON.stringify(rawResponse)}`);
+  return JSON.parse(rawResponse.slice(separator + 4));
 }
 
 test("route inventory contains only discovery and operational health GETs", () => {
@@ -86,4 +116,46 @@ test("mutation methods and unimplemented protocol routes are absent", async t =>
   }
   assert.equal((await fetch(`${base}/v1/records`)).status, 404);
   assert.equal((await fetch(`${base}/v1/search`)).status, 404);
+});
+
+// Regression coverage for review t_bf762a64 blocker B1: a malformed request-target must be
+// answered with a clean 400 over the existing socket and must never terminate the process.
+test("malformed absolute-form request targets are answered 400 and the server survives", async t => {
+  const base = await startServer(t);
+  const port = Number(new URL(base).port);
+  const malformedTargets = [
+    "http://[::1", // exact raw-TCP repro from review t_bf762a64 (B1)
+    "http://", // absolute-form without an authority
+    "http://registry.example:99999/x", // absolute-form with an out-of-range port
+    "ftp://registry.example/x", // absolute-form with a non-HTTP scheme
+  ];
+  for (const target of malformedTargets) {
+    const raw = await rawRequest(port, target);
+    assert.match(statusLine(raw), /^HTTP\/1\.1 400 /u, `target ${JSON.stringify(target)} was not rejected: ${statusLine(raw)}`);
+    assert.equal(jsonBody(raw).error.code, "bad_request");
+  }
+  // Proof the same server instance keeps serving well-formed requests afterwards.
+  const live = await fetch(`${base}/health/live`);
+  assert.equal(live.status, 200);
+  assert.deepEqual(await live.json(), { status: "live" });
+});
+
+test("invalid percent-encoding and oversized request targets are answered 400 and the server survives", async t => {
+  const base = await startServer(t);
+  const port = Number(new URL(base).port);
+  const malformedTargets = [
+    "/%zz", // "%" not followed by two hex digits
+    "/health%2live", // truncated percent-escape
+    "/%01", // percent-encoded control octet
+    `/${"a".repeat(8192)}`, // request target beyond the accepted bound
+  ];
+  for (const target of malformedTargets) {
+    const raw = await rawRequest(port, target);
+    assert.match(statusLine(raw), /^HTTP\/1\.1 400 /u, `target ${JSON.stringify(target.slice(0, 24))} was not rejected: ${statusLine(raw)}`);
+    assert.equal(jsonBody(raw).error.code, "bad_request");
+  }
+  // Proof the same server instance keeps serving well-formed requests afterwards.
+  const descriptor = await fetch(`${base}/.well-known/open-radio-registry`);
+  assert.equal(descriptor.status, 200);
+  assert.equal((await descriptor.json()).protocol, "oradio/1");
 });
