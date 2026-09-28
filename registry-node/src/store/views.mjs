@@ -12,13 +12,15 @@
 //
 // The response vocabulary is pinned to the desktop client's response parser
 // (src/radios/barebuhsearchparser.cpp, tests/src/barebuhservice_test.cpp): a search item carries
-// `station_id`, a valid `winning_record_id`, a non-empty `tips` array, `forked`, the signed
-// `station` snapshot, `provenance` (array or object), `policy_state` in
+// `station_id`, a valid `winning_record_id`, a non-empty `tips` array of at most 32 record IDs
+// (with the full tip count in `tips_total`), `forked`, the signed `station` snapshot with at most
+// 32 tags of at most 64 UTF-8 bytes each, `provenance` (array or object), `policy_state` in
 // {admitted, suppressed, tombstoned, unsupported_critical}, second-precision `indexed_at` and
 // `last_replication_at` instants, and a `health` object whose `state` is one of
 // {unknown, ok, degraded, unreachable, blocked} with `expires_at` present. The client pins
 // `limit=64` and rejects a page with `has_more=true`, so this node's whole listing must fit in one
-// page for that client.
+// page for that client; the tag bound is enforced at admission (protocol/v1/lib/conformance.mjs),
+// and the tip list is the client bound applied to the DAG's heads.
 
 import { createHash } from "node:crypto";
 
@@ -41,6 +43,10 @@ export const READ_LIMITS = Object.freeze({
   maxSearchQueryTermBytes: 64,
   maxHealthObservations: 64,
   maxProvenanceSources: 32,
+  // The desktop client's per-item tip bound (src/radios/barebuhsearchparser.cpp: tips is a
+  // non-empty array of at most 32 record IDs). A fork storm can grow the DAG heads without bound,
+  // so the served list is capped and `tips_total` carries the true count.
+  maxStationTips: 32,
   maxProvenanceBytes: 4096,
   maxCursorBytes: CURSOR_LIMITS.maxCursorBytes,
   maxCursorOffset: CURSOR_LIMITS.maxCursorOffset,
@@ -295,8 +301,11 @@ function projectionRowOf(db, stationId) {
   return db.prepare("SELECT visible_record_id, winning_sequence, name, normalized_name, short_name, homepage, country, station_json, provenance_json, indexed_at FROM station_projection WHERE station_id = ?").get(stationId) ?? null;
 }
 
+// The served tip list is the client-bounded slice of the station's DAG heads; the true head count
+// is reported separately so a capped list is never mistaken for the whole thing.
 function tipsOf(db, stationId) {
-  return db.prepare("SELECT record_id FROM station_tips WHERE station_id = ? ORDER BY record_id").all(stationId).map(row => row.record_id);
+  const ids = db.prepare("SELECT record_id FROM station_tips WHERE station_id = ? ORDER BY record_id").all(stationId).map(row => row.record_id);
+  return { ids: ids.slice(0, READ_LIMITS.maxStationTips), total: ids.length };
 }
 
 // Deterministic provenance summary: how many station records this node holds and which sources
@@ -360,12 +369,14 @@ export function healthOf(db, stationId, { observerId, nowInstant }) {
 function baseItem(db, stationId, { observerId, nowInstant }) {
   const stateRow = stateRowOf(db, stationId);
   const projection = projectionRowOf(db, stationId);
+  const tips = tipsOf(db, stationId);
   return {
     station_id: stationId,
     state: stateRow?.state ?? null,
     policy_state: policyStateOf(stateRow?.state),
     winning_record_id: stateRow?.visible_record_id ?? null,
-    tips: tipsOf(db, stationId),
+    tips: tips.ids,
+    tips_total: tips.total,
     forked: stateRow?.forked === 1,
     station: projection === null ? null : parseJsonStrict(Buffer.from(projection.station_json, "utf8")),
     provenance: provenanceOf(db, stationId),

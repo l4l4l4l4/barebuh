@@ -16,7 +16,7 @@ import { join } from "node:path";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { canonicalize, parseJsonStrict } from "../../protocol/v1/lib/conformance.mjs";
+import { canonicalize, parseJsonStrict, STATION_TAG_MAX_BYTES, STATION_TAG_MAX_ITEMS } from "../../protocol/v1/lib/conformance.mjs";
 import { loadConfig } from "../src/config.mjs";
 import { createRegistryServer, ROUTES } from "../src/http.mjs";
 import { migrateDatabase, openDatabase } from "../src/store/db.mjs";
@@ -191,6 +191,7 @@ test("the station resource exposes the signed snapshot, provenance, policy, and 
   assert.equal(body.policy_state, "admitted");
   assert.equal(body.winning_record_id, publishedId);
   assert.deepEqual(body.tips, [publishedId]);
+  assert.equal(body.tips_total, 1);
   assert.equal(body.forked, false);
   assert.deepEqual(body.station, {
     name: "Jazz Café FM",
@@ -493,6 +494,46 @@ test("the health view reports the local badge, separate remote observations, and
   assert.equal(absent.body.error.code, "station_not_found");
 });
 
+// The desktop client's per-item acceptance rules (src/radios/barebuhsearchparser.cpp): one
+// violation makes the client reject the WHOLE listing, so every served item must satisfy all of
+// them. The bounds are asserted as the client's published numbers, never as this node's own
+// constants, so a node change alone can never make this test agree with a broken contract.
+function assertClientContractItem(item) {
+  assert.match(item.station_id, STATION_ID);
+  assert.match(item.winning_record_id, RECORD_ID);
+  assert.ok(Array.isArray(item.tips) && item.tips.length > 0 && item.tips.length <= 32 && item.tips.every(tip => RECORD_ID.test(tip)));
+  assert.ok(Number.isSafeInteger(item.tips_total) && item.tips_total >= item.tips.length, "tips_total must count at least the served tips");
+  assert.equal(typeof item.forked, "boolean");
+  assert.equal(typeof item.station, "object");
+  assert.ok(item.station.name.trim().length > 0 && Buffer.byteLength(item.station.name, "utf8") <= 200);
+  assert.ok(Array.isArray(item.station.streams) && item.station.streams.length > 0 && item.station.streams.length <= 16);
+  for (const stream of item.station.streams) {
+    const url = new URL(stream.url);
+    assert.ok(["http:", "https:"].includes(url.protocol) && url.host !== "" && url.username === "" && url.hash === "");
+    assert.ok(Buffer.byteLength(stream.url, "utf8") <= 2048);
+    assert.equal(stream.transport, url.protocol.slice(0, -1));
+    assert.ok(stream.codec.trim().length > 0 && Buffer.byteLength(stream.codec, "utf8") <= 64);
+  }
+  const tags = item.station.tags ?? [];
+  assert.ok(Array.isArray(tags) && tags.length <= STATION_TAG_MAX_ITEMS, "station tags exceed the client's tag count bound");
+  for (const tag of tags) {
+    assert.ok(tag.trim().length > 0 && Buffer.byteLength(tag, "utf8") <= STATION_TAG_MAX_BYTES, `station tag exceeds the client's ${STATION_TAG_MAX_BYTES}-byte bound: ${tag}`);
+  }
+  assert.ok(typeof item.provenance === "object" && item.provenance !== null);
+  assert.ok(Buffer.byteLength(JSON.stringify(item.provenance), "utf8") <= 4096);
+  assert.match(item.indexed_at, SECOND_INSTANT);
+  assert.match(item.last_replication_at, SECOND_INSTANT);
+  assert.ok(POLICY_STATES.has(item.policy_state));
+  assert.equal(typeof item.health, "object");
+  assert.ok(Object.hasOwn(item.health, "expires_at"));
+  assert.ok(HEALTH_STATES.has(item.health.state));
+  if (item.health.state === "unknown" && item.health.expires_at === null) {
+    // The client maps this to health_expires_at = 0.
+  } else {
+    assert.match(item.health.expires_at, SECOND_INSTANT);
+  }
+}
+
 test("a search page satisfies the desktop client's response contract", async t => {
   const localSigner = createSigner("node");
   const harness = await startApi(t, { nodeId: localSigner.identity });
@@ -509,33 +550,7 @@ test("a search page satisfies the desktop client's response contract", async t =
   assert.ok(page.query_snapshot.trim().length > 0 && Buffer.byteLength(page.query_snapshot, "utf8") <= 1024);
 
   for (const item of page.items) {
-    assert.match(item.station_id, STATION_ID);
-    assert.match(item.winning_record_id, RECORD_ID);
-    assert.ok(Array.isArray(item.tips) && item.tips.length > 0 && item.tips.length <= 32 && item.tips.every(tip => RECORD_ID.test(tip)));
-    assert.equal(typeof item.forked, "boolean");
-    assert.equal(typeof item.station, "object");
-    assert.ok(item.station.name.trim().length > 0 && Buffer.byteLength(item.station.name, "utf8") <= 200);
-    assert.ok(Array.isArray(item.station.streams) && item.station.streams.length > 0 && item.station.streams.length <= 16);
-    for (const stream of item.station.streams) {
-      const url = new URL(stream.url);
-      assert.ok(["http:", "https:"].includes(url.protocol) && url.host !== "" && url.username === "" && url.hash === "");
-      assert.ok(Buffer.byteLength(stream.url, "utf8") <= 2048);
-      assert.equal(stream.transport, url.protocol.slice(0, -1));
-      assert.ok(stream.codec.trim().length > 0 && Buffer.byteLength(stream.codec, "utf8") <= 64);
-    }
-    assert.ok(typeof item.provenance === "object" && item.provenance !== null);
-    assert.ok(Buffer.byteLength(JSON.stringify(item.provenance), "utf8") <= 4096);
-    assert.match(item.indexed_at, SECOND_INSTANT);
-    assert.match(item.last_replication_at, SECOND_INSTANT);
-    assert.ok(POLICY_STATES.has(item.policy_state));
-    assert.equal(typeof item.health, "object");
-    assert.ok(Object.hasOwn(item.health, "expires_at"));
-    assert.ok(HEALTH_STATES.has(item.health.state));
-    if (item.health.state === "unknown" && item.health.expires_at === null) {
-      // The client maps this to health_expires_at = 0.
-    } else {
-      assert.match(item.health.expires_at, SECOND_INSTANT);
-    }
+    assertClientContractItem(item);
 
     // Every field the offline cache fixture requires can be derived from one item.
     const cacheRow = {
@@ -553,6 +568,57 @@ test("a search page satisfies the desktop client's response contract", async t =
     };
     for (const field of cases.offline_cache.required_fields) assert.ok(Object.hasOwn(cacheRow, field), `missing cache field ${field}`);
   }
+});
+
+// The adversarial page from the t_2d775a6a review (F1/F2): a 65-byte tag and a 33-tip fork
+// storm. The tag is refused at ingest, and the storm is served inside the client contract.
+test("oversized tags are refused at ingest and tip storms are served inside the client contract", async t => {
+  const harness = await startApi(t);
+
+  // The tag bound is inclusive: exactly 64 UTF-8 bytes is admitted and served.
+  const boundary = publish(harness, { name: "Boundary FM", station: { tags: [`${"x".repeat(60)}😀`] } });
+  const boundaryStation = (await harness.get(`/v1/stations/${digestOf(boundary.signer)}`)).body;
+  assert.equal(Buffer.byteLength(boundaryStation.station.tags[0], "utf8"), STATION_TAG_MAX_BYTES);
+  assertClientContractItem(boundaryStation);
+
+  // One byte over the bound is refused at ingest: quarantine evidence, no record, no station, and
+  // therefore no page the client would drop.
+  const oversizedSigner = createSigner("station");
+  const oversized = harness.ingest(stationRecord(oversizedSigner, { sequence: 0, station: stationBody("Oversized FM", { tags: [`${"x".repeat(61)}😀`] }) }));
+  assert.equal(oversized.status, "quarantined");
+  assert.equal(oversized.stage, "validation");
+  assert.match(oversized.message, /station\.tags\[0\] must be a non-empty bounded string/u);
+  assert.equal((await harness.get(`/v1/stations/${digestOf(oversizedSigner)}`)).status, 404);
+
+  // A 33-tip fork storm: 33 same-sequence siblings of one genesis record. The DAG keeps every
+  // tip; the served page carries the client-bounded slice plus the true count.
+  const stormSigner = createSigner("station");
+  const genesis = stationRecord(stormSigner, { sequence: 0, station: stationBody("Storm FM") });
+  assert.equal(harness.ingest(genesis).status, "stored");
+  const siblings = [];
+  for (let index = 0; index < 33; ++index) {
+    const sibling = stationRecord(stormSigner, { sequence: 1, parents: [recordIdOf(genesis)], station: stationBody(`Storm FM fork ${String(index).padStart(2, "0")}`) });
+    assert.equal(harness.ingest(sibling).status, "stored");
+    siblings.push(recordIdOf(sibling));
+  }
+  const materialized = materializeStation(harness.db, stormSigner.identity, { now: INGEST_NOW });
+  assert.equal(materialized.state, "active");
+  assert.equal(materialized.forked, true);
+  assert.equal(materialized.tips.length, 33);
+
+  const page = (await harness.get("/v1/search?limit=64")).body;
+  const storm = page.items.find(item => item.station_id === stormSigner.identity);
+  assert.ok(storm, "the storm station must be listed");
+  assertClientContractItem(storm);
+  assert.equal(storm.forked, true);
+  assert.equal(storm.tips_total, 33);
+  assert.equal(storm.tips.length, 32);
+  assert.deepEqual(storm.tips, [...siblings].sort().slice(0, 32));
+
+  const resource = (await harness.get(`/v1/stations/${digestOf(stormSigner)}`)).body;
+  assert.equal(resource.tips_total, 33);
+  assert.deepEqual(resource.tips, storm.tips);
+  assertClientContractItem(resource);
 });
 
 test("non-active stations never enter the search listing", async t => {

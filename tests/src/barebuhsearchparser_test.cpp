@@ -136,3 +136,48 @@ TEST(BarebuhSearchParserTest, RejectsIncompleteOrInvalidProjectionState) {
   oversized_codec.replace("\"codec\":\"mp3\"", codec);
   EXPECT_FALSE(BarebuhSearchParser::Parse(SearchPage("[" + oversized_codec + "]")).valid);
 }
+
+// The registry node serves every station inside the desktop client's documented bounds
+// (docs/protocol-mvp.md, "Desktop client page bounds"); the node's client-contract test mirrors
+// these bounds (registry-node/test/api.test.mjs). A capped tip list carries the full head count in
+// `tips_total`, and a station tag never exceeds 64 UTF-8 bytes.
+TEST(BarebuhSearchParserTest, AcceptsNodeServedPageAtTheClientBounds) {
+  const QByteArray tag = QByteArray(60, 'x') + QByteArray::fromHex("F09F9880");
+  EXPECT_EQ(64, tag.size());
+
+  QByteArray station = Station();
+  station.replace("[\"jazz\",\"live\"]", "[\"" + tag + "\"]");
+
+  QByteArray tips = "[";
+  for (int index = 0; index < 32; ++index) {
+    const QByteArray tip = QByteArray("sha256:") + QByteArray::number(index).rightJustified(2, '0').leftJustified(43, 'A');
+    tips += (index == 0 ? "" : ",") + QByteArray("\"") + tip + QByteArray("\"");
+  }
+  tips += "]";
+  station.replace("[\"sha256:abcdefghijklmnopqrstuvwxyzABCDEFGH123456789\"]", tips + ",\"tips_total\":33");
+
+  const BarebuhSearchResult result = BarebuhSearchParser::Parse(SearchPage("[" + station + "]"));
+  ASSERT_TRUE(result.valid) << result.error;
+  ASSERT_EQ(1, result.channels.size());
+  EXPECT_EQ(QString::fromUtf8(tag), result.channels.first().tags);
+}
+
+TEST(BarebuhSearchParserTest, RejectsTagsAndTipListsBeyondTheNodeContract) {
+  // The node refuses these at ingest and never serves an item that carries them; the client keeps
+  // its own bound pinned here so one side cannot drift past the other silently.
+  const QByteArray oversized_tag = QByteArray(61, 'x') + QByteArray::fromHex("F09F9880");
+  EXPECT_EQ(65, oversized_tag.size());
+  QByteArray oversized_station = Station();
+  oversized_station.replace("[\"jazz\",\"live\"]", "[\"" + oversized_tag + "\"]");
+  EXPECT_FALSE(BarebuhSearchParser::Parse(SearchPage("[" + oversized_station + "]")).valid);
+
+  QByteArray storm = Station();
+  QByteArray tips = "[";
+  for (int index = 0; index < 33; ++index) {
+    const QByteArray tip = QByteArray("sha256:") + QByteArray::number(index).rightJustified(2, '0').leftJustified(43, 'A');
+    tips += (index == 0 ? "" : ",") + QByteArray("\"") + tip + QByteArray("\"");
+  }
+  tips += "]";
+  storm.replace("[\"sha256:abcdefghijklmnopqrstuvwxyzABCDEFGH123456789\"]", tips);
+  EXPECT_FALSE(BarebuhSearchParser::Parse(SearchPage("[" + storm + "]")).valid);
+}

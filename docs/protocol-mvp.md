@@ -218,7 +218,7 @@ non-critical extension members under the preservation rules above.
 | Signed envelope | `payload`, `proof.alg`, `proof.key_id`, `proof.signature` |
 | Feed/snapshot page | `items[]`, `next_cursor`, `has_more`, `checkpoint` |
 | Feed item | `record_id`, `envelope` |
-| Materialized station | `station_id`, `winning_record_id`, `tips[]`, `forked`, `station`, `provenance`, `indexed_at`, `last_replication_at`, `policy_state`, `health` |
+| Materialized station | `station_id`, `winning_record_id`, `tips[]`, `tips_total`, `forked`, `station`, `provenance`, `indexed_at`, `last_replication_at`, `policy_state`, `health` |
 | Search page | `items[]`, `next_cursor`, `has_more`, `query_snapshot` |
 | Search item | materialized station summary plus provenance and freshness fields |
 | Observation payload | `protocol`, `kind=observation`, `observer`, `station_id`, endpoint reference, `observed_at`, `expires_at`, `outcome` |
@@ -273,7 +273,10 @@ the peer, materializes the union, then resumes from the snapshot checkpoint.
 A station response includes the winning station snapshot plus:
 
 - `station_id` and `winning_record_id`;
-- all current tip IDs and `forked`;
+- the current tip IDs, `tips_total`, and `forked`: the wire list is bounded by
+  the desktop client's per-item tip bound (see "Desktop client page bounds"),
+  so `tips_total` carries the full head count when the DAG has more tips than
+  the list, and `forked` reflects the whole DAG;
 - source peer provenance or source count;
 - index and last-replication timestamps;
 - local policy state;
@@ -281,6 +284,32 @@ A station response includes the winning station snapshot plus:
 
 A node MUST distinguish absence, local suppression, verified tombstone, and
 unsupported critical semantics.
+
+### Desktop client page bounds
+
+The bundled desktop client refreshes a node's listing with one pinned request
+(`GET /v1/search?limit=64`) and rejects, rather than pages, any response it
+cannot fully accept. A deployment that serves that client keeps the whole
+listing inside the client's single-page bounds:
+
+- at most 64 items per page and at most 64 KiB of response bytes;
+- `has_more` false and `next_cursor` null: the client treats any other answer
+  as a failed refresh instead of following cursors;
+- per item: a non-empty `tips` array of at most 32 record IDs, with
+  `tips_total` reporting the full tip count (the wire list is the first 32 tips
+  in record-id order) and `forked` reflecting the whole DAG;
+- per station: at most 32 tags of at most 64 UTF-8 bytes each - the same bound
+  the verifier enforces at admission, so a page can never contain a tag the
+  client would refuse;
+- every other per-item bound the client checks: `name` at most 200 bytes, 1-16
+  streams, stream URL at most 2048 bytes, `codec` at most 64 bytes,
+  `provenance` at most 4096 bytes, second-precision instants, and the
+  enumerated `policy_state` and `health.state` values.
+
+A listing that cannot fit one page - more than 64 active stations, or a page
+beyond 64 KiB - cannot refresh this client until the client implements paging.
+Node-side pagination (`next_cursor`, `has_more`, up to `limit=1000`) remains
+available to other consumers and is unaffected.
 
 ### Search
 
