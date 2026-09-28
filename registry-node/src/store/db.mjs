@@ -7,6 +7,10 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { backup, DatabaseSync } from "node:sqlite";
 
+// The schema version this binary expects. It must equal the highest committed migration
+// (db.test.mjs pins that invariant) and is what `serve` requires before it listens.
+export const LATEST_SCHEMA_VERSION = 2;
+
 const MIGRATION_PATTERN = /^(?<version>[0-9]{4})-(?<name>[a-z0-9-]+)\.sql$/u;
 const SQLITE_LIMITS = Object.freeze({
   length: 2 * 1024 * 1024,
@@ -64,6 +68,20 @@ export function openDatabase(path, { readOnly = false } = {}) {
   db.exec("PRAGMA foreign_keys = ON; PRAGMA trusted_schema = OFF; PRAGMA synchronous = FULL;");
   if (!readOnly) db.exec("PRAGMA journal_mode = DELETE;");
   return db;
+}
+
+// Every write in the store runs inside BEGIN IMMEDIATE: the process may be killed at any point
+// and SQLite's rollback journal guarantees that only fully committed state survives restart.
+export function withTransaction(db, action) {
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const result = action();
+    db.exec("COMMIT");
+    return result;
+  } catch (error) {
+    if (db.isTransaction) db.exec("ROLLBACK");
+    throw error;
+  }
 }
 
 function tableExists(db, name) {

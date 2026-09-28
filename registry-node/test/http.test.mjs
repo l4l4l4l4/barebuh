@@ -18,8 +18,14 @@ async function startServer(t, { migrated = true } = {}) {
   const directory = await mkdtemp(join(tmpdir(), "barebuh-http-test-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const databasePath = join(directory, "registry.sqlite3");
-  if (migrated) await migrateDatabase(databasePath, { migrationsDir });
-  const db = openDatabase(databasePath, { readOnly: migrated });
+  if (migrated) {
+    await migrateDatabase(databasePath, { migrationsDir });
+  } else {
+    // The readiness path must be exercised against a real database file that is simply not
+    // migrated yet, not against a missing file.
+    openDatabase(databasePath).close();
+  }
+  const db = openDatabase(databasePath, { readOnly: true });
   t.after(() => db.close());
   const config = loadConfig({
     BAREBUH_DATABASE_PATH: databasePath,
@@ -104,7 +110,14 @@ test("liveness does no dependency work and readiness checks only the local datab
 
   const ready = await fetch(`${base}/health/ready`);
   assert.equal(ready.status, 200);
-  assert.deepEqual(await ready.json(), { status: "ready", schema_version: 1 });
+  assert.deepEqual(await ready.json(), { status: "ready", schema_version: 2 });
+});
+
+test("readiness fails closed when the database is not migrated to the current schema", async t => {
+  const base = await startServer(t, { migrated: false });
+  const ready = await fetch(`${base}/health/ready`);
+  assert.equal(ready.status, 503);
+  assert.deepEqual(await ready.json(), { status: "not_ready", reason: "local_database" });
 });
 
 test("mutation methods and unimplemented protocol routes are absent", async t => {

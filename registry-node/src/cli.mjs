@@ -4,7 +4,7 @@
 
 import { loadConfig } from "./config.mjs";
 import { createRegistryServer } from "./http.mjs";
-import { backupDatabase, checkDatabase, migrateDatabase, openDatabase, restoreCheck } from "./store/db.mjs";
+import { backupDatabase, checkDatabase, LATEST_SCHEMA_VERSION, migrateDatabase, openDatabase, restoreCheck } from "./store/db.mjs";
 
 function usage() {
   console.error("usage: registry-node <serve|migrate|check-db|backup|restore-check|effective-config> [path]");
@@ -37,7 +37,7 @@ async function main() {
     case "serve": {
       const db = openDatabase(config.databasePath, { readOnly: true });
       const checks = checkDatabase(db);
-      if (checks.schemaVersion !== 1) throw new Error("database schema is not current; run migrate first");
+      if (checks.schemaVersion !== LATEST_SCHEMA_VERSION) throw new Error("database schema is not current; run migrate first");
       const server = createRegistryServer({ config, db });
       server.on("close", () => db.close());
       server.listen(config.port, config.host, () => {

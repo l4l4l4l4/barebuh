@@ -4,7 +4,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 
-import { checkDatabase } from "./store/db.mjs";
+import { checkDatabase, LATEST_SCHEMA_VERSION } from "./store/db.mjs";
 
 export const ROUTES = Object.freeze([
   "GET /.well-known/open-radio-registry",
@@ -116,7 +116,7 @@ function handleRequest(request, response, { config, db }) {
   if (url.pathname === "/health/ready") {
     try {
       const checks = checkDatabase(db);
-      if (checks.schemaVersion !== 1) throw new Error("schema mismatch");
+      if (checks.schemaVersion !== LATEST_SCHEMA_VERSION) throw new Error("schema mismatch");
       sendJson(request, response, 200, { status: "ready", schema_version: checks.schemaVersion });
     } catch {
       sendJson(request, response, 503, { status: "not_ready", reason: "local_database" });
