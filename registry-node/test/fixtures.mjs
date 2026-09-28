@@ -46,9 +46,9 @@ export function recordIdOf(envelope) {
   return `sha256:${createHash("sha256").update(Buffer.from(canonicalize(envelope.payload), "utf8")).digest("base64url")}`;
 }
 
-export function digestOfUrl(url) {
-  return `sha256:${createHash("sha256").update(Buffer.from(url, "utf8")).digest("base64url")}`;
-}
+// The stream digest must be the same value the materializer writes into station_streams, so the
+// helper is re-exported from the store module instead of being reimplemented here.
+export { digestOfUrl } from "../src/store/materialize.mjs";
 
 export function streamUrl(index) {
   return `https://stream.example.invalid/live-${index}`;

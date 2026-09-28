@@ -25,6 +25,7 @@
               let base = baseNameOf path;
               in !(base == ".git" || base == "build" || base == "result");
           };
+          registryNode = pkgs.callPackage ./nix/registry-node-package.nix { };
         in {
           protocol-v1 = pkgs.runCommand "barebuh-protocol-v1-check" {
             nativeBuildInputs = [ pkgs.gnumake pkgs.nodejs_24 ];
@@ -44,6 +45,30 @@
           } ''
             cd ${testSource}/registry-node
             node --test test/db.test.mjs
+            touch $out
+          '';
+          packaged-cli = pkgs.runCommand "barebuh-registry-node-packaged-check" {
+            nativeBuildInputs = [ pkgs.nodejs_24 ];
+          } ''
+            # The packaged CLI must be usable on its own: this proves that the shared protocol
+            # library shipped next to it still resolves and that a real signed envelope can be
+            # ingested, materialized, verified, and locally suppressed.
+            export HOME="$TMPDIR"
+            work="$(mktemp -d)"
+            export BAREBUH_DATABASE_PATH="$work/registry.sqlite3"
+            bin=${registryNode}/bin/barebuh-registry-node
+            "$bin" effective-config > /dev/null
+            "$bin" migrate | grep -q '"schemaVersion":2'
+            "$bin" check-db | grep -q '"quickCheck":"ok"'
+            station="$(${pkgs.nodejs_24}/bin/node ${testSource}/registry-node/test/emit-envelope.mjs "$work")"
+            "$bin" ingest "$work/envelope-0.json" | grep -q '"status":"stored"'
+            "$bin" ingest "$work/envelope-1.json" | grep -q '"state":"active"'
+            "$bin" ingest "$work/envelope-1.json" | grep -q '"status":"duplicate"'
+            "$bin" check-projection | grep -q '"mismatches": \[\]'
+            "$bin" station "$station" | grep -q '"name": "Smoke Test FM renewed"'
+            "$bin" rebuild | grep -q '"forced":false'
+            "$bin" set-policy "$("$bin" station "$station" | grep -o '"visibleRecordId": "[^"]*"' | cut -d'"' -f4)" suppressed | grep -q '"state":"suppressed"'
+            "$bin" drain | grep -q '"remaining":0'
             touch $out
           '';
         });

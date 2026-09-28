@@ -1,4 +1,4 @@
-.PHONY: check protocol-check test-registry migration-test registry-config registry-migrate registry-check-db registry-backup registry-restore-check nix-check
+.PHONY: check protocol-check test-registry migration-test registry-config registry-migrate registry-check-db registry-backup registry-restore-check registry-ingest registry-drain registry-materialize registry-rebuild registry-check-projection registry-station registry-set-policy nix-check
 
 REGISTRY_DB ?= $(CURDIR)/var/registry.sqlite3
 
@@ -29,6 +29,33 @@ registry-backup:
 registry-restore-check:
 	@test -n "$(RESTORE)" || { echo "RESTORE=/path/to/backup.sqlite3 is required" >&2; exit 2; }
 	node registry-node/src/cli.mjs restore-check "$(RESTORE)"
+
+# Ingest a signed envelope (use ENVELOPE=- to read it from stdin) and materialize its station,
+# drain the materialize queue, or rebuild and verify the projection from the immutable records.
+registry-ingest:
+	@test -n "$(ENVELOPE)" || { echo "ENVELOPE=/path/to/envelope.json (or -) is required" >&2; exit 2; }
+	BAREBUH_DATABASE_PATH="$(REGISTRY_DB)" node registry-node/src/cli.mjs ingest "$(ENVELOPE)" "$(SOURCE)"
+
+registry-drain:
+	BAREBUH_DATABASE_PATH="$(REGISTRY_DB)" node registry-node/src/cli.mjs drain $(LIMIT)
+
+registry-materialize:
+	@test -n "$(STATION)" || { echo "STATION=oradio:station:ed25519:... is required" >&2; exit 2; }
+	BAREBUH_DATABASE_PATH="$(REGISTRY_DB)" node registry-node/src/cli.mjs materialize "$(STATION)"
+
+registry-rebuild:
+	BAREBUH_DATABASE_PATH="$(REGISTRY_DB)" node registry-node/src/cli.mjs rebuild
+
+registry-check-projection:
+	BAREBUH_DATABASE_PATH="$(REGISTRY_DB)" node registry-node/src/cli.mjs check-projection
+
+registry-station:
+	@test -n "$(STATION)" || { echo "STATION=oradio:station:ed25519:... is required" >&2; exit 2; }
+	BAREBUH_DATABASE_PATH="$(REGISTRY_DB)" node registry-node/src/cli.mjs station "$(STATION)"
+
+registry-set-policy:
+	@test -n "$(RECORD)" -a -n "$(STATE)" || { echo "RECORD=sha256:... STATE=admitted|suppressed|quarantined are required" >&2; exit 2; }
+	BAREBUH_DATABASE_PATH="$(REGISTRY_DB)" node registry-node/src/cli.mjs set-policy "$(RECORD)" "$(STATE)" $(REASON)
 
 nix-check:
 	nix flake check --offline

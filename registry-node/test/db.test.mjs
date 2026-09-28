@@ -65,6 +65,7 @@ test("schema-1 databases migrate to the materializer schema without rewriting st
   const databasePath = join(directory, "registry.sqlite3");
   const schema1Migrations = join(directory, "migrations-1");
   await cp(migrationsDir, schema1Migrations, { recursive: true });
+  await chmod(schema1Migrations, 0o700);
   await rm(join(schema1Migrations, "0002-materializer.sql"));
 
   // Build a schema-1 database and give it a station state row exactly as schema 1 allowed it.
