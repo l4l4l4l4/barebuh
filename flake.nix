@@ -58,7 +58,7 @@
             export BAREBUH_DATABASE_PATH="$work/registry.sqlite3"
             bin=${registryNode}/bin/barebuh-registry-node
             "$bin" effective-config > /dev/null
-            "$bin" migrate | grep -q '"schemaVersion":2'
+            "$bin" migrate | grep -q '"schemaVersion":3'
             "$bin" check-db | grep -q '"quickCheck":"ok"'
             station="$(${pkgs.nodejs_24}/bin/node ${testSource}/registry-node/test/emit-envelope.mjs "$work")"
             "$bin" ingest "$work/envelope-0.json" | grep -q '"status":"stored"'
@@ -69,6 +69,11 @@
             "$bin" rebuild | grep -q '"forced":false'
             "$bin" set-policy "$("$bin" station "$station" | grep -o '"visibleRecordId": "[^"]*"' | cut -d'"' -f4)" suppressed | grep -q '"state":"suppressed"'
             "$bin" drain | grep -q '"remaining":0'
+            # The packaged CLI must resolve the federation modules too: pins and the pull worker are
+            # part of the shipped surface, and they stay inert outside the pinned-federation mode.
+            BAREBUH_MODE=PRIVATE_PINNED_FEDERATION BAREBUH_FEDERATION_ENABLED=true "$bin" peer-list | grep -q '"peers": \[\]'
+            BAREBUH_MODE=PRIVATE_PINNED_FEDERATION BAREBUH_FEDERATION_ENABLED=true "$bin" peer-add oradio:node:ed25519:Wzz6buDMljkddWS2frYOsSzLipZaxrhDmo5Ix8G-PK8 https://peer.example/v1/ peer-a | grep -q '"label":"peer-a"'
+            BAREBUH_MODE=PRIVATE_PINNED_FEDERATION BAREBUH_FEDERATION_ENABLED=true "$bin" peer-list | grep -q 'oradio:node:ed25519:Wzz6buDMljkddWS2frYOsSzLipZaxrhDmo5Ix8G-PK8'
             touch $out
           '';
         });

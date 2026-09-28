@@ -4,19 +4,20 @@ This directory contains the private, local, read-only registry scaffold describe
 
 Implemented now:
 
-- fail-closed `MVP_LOCAL_READ_ONLY` configuration;
+- fail-closed `MVP_LOCAL_READ_ONLY` configuration plus the opt-in `PRIVATE_PINNED_FEDERATION` mode;
 - loopback-only HTTP listener;
 - deterministic `/.well-known/open-radio-registry` with ETag/304;
 - local-only `/health/live` and `/health/ready`;
-- a forward-only, hash-verified SQLite/FTS5 migration chain (schema 2);
+- a forward-only, hash-verified SQLite/FTS5 migration chain (schema 3);
 - bounded signed-envelope ingest for station, node, and observation records: protocol validation, deterministic provenance, append-only record storage, orphan admission, quarantine for invalid or unadmitted documents, and local admission/suppression policy;
 - a deterministic station materializer with a bounded queue, an FTS5 projection that is rebuildable from the immutable records, and `verify`/`rebuild` commands that never repair derived state from unsigned data;
 - the bounded read API: the signed node card relayed under its signed lifetime, station and health views with provenance, policy, and freshness, and a deterministic paged search over the projection, all with strong ETags, `304` handling, and one closed error envelope;
 - a disabled-by-default authenticated submission boundary that refuses every request before reading a body byte;
+- pinned pull federation: the read-only records feed and snapshot recovery views, explicit operator pins, and a bounded, strictly sequential pull replicator with per-item verification, quarantine evidence, atomic page/cursor commits, provenance, deduplication, budgets, jittered backoff, and a per-peer circuit breaker;
 - offline database checks and SQLite online backup/restore validation;
 - zero npm dependencies and a Node test harness.
 
-Not implemented and therefore not advertised: the read-only record feed, snapshots, import, public writes, federation, station probing or any health fetcher, public listeners, credentials, deployment, or a NixOS service module.
+Not implemented and therefore not advertised: bulk record import (`PUT`/bulk transfer), public writes, station probing or any health fetcher, public listeners, credentials, DNS-based peer discovery and peer-of-peer admission, deployment, or a NixOS service module.
 
 Use the root Makefile:
 
@@ -40,7 +41,7 @@ node registry-node/src/cli.mjs serve
 
 `BAREBUH_NODE_ID` is optional: without it the node serves its read APIs but no node card.
 
-The public base is descriptor data and must be HTTPS even though the development listener itself is loopback HTTP. The placeholder `.invalid` origin prevents accidental publication. Unknown `BAREBUH_*` settings and attempts to enable writes, network probes, federation, non-local modes, or non-loopback binding stop startup.
+The public base is descriptor data and must be HTTPS even though the development listener itself is loopback HTTP. The placeholder `.invalid` origin prevents accidental publication. Unknown `BAREBUH_*` settings stop startup, and the risky switches stay fail-closed: writes and network probes cannot be enabled at all, `BAREBUH_FEDERATION_ENABLED=true` is refused unless the mode is `PRIVATE_PINNED_FEDERATION`, and that mode in turn refuses to start with federation switched off. Non-loopback binding is refused in every mode.
 
 Backup and validate without copying a live database file:
 
@@ -59,13 +60,15 @@ The listener is read-only, loopback-only, and serves exactly the routes below. E
 | `GET /health/live`, `GET /health/ready` | local liveness and readiness |
 | `GET /v1/node` | the configured node's signed card, byte-for-byte, until its signed expiry |
 | `GET /v1/search?...` | deterministic paged search over the materialized projection |
+| `GET /v1/records?...` | the append-only record feed (pinned-federation mode only) |
+| `GET /v1/snapshot?...` | snapshot recovery over the complete retained set (pinned-federation mode only) |
 | `GET /v1/stations/{key}` | the signed station snapshot with provenance, policy, and freshness |
 | `GET /v1/health/{key}` | the local health badge plus the observations this node stores |
 | `POST /v1/records` | the submission boundary: always `403 submission_disabled` |
 
 `/v1/node` requires `BAREBUH_NODE_ID` to match an admitted, unexpired node card; without one it answers `503 node_card_unavailable`, and past the signed expiry `503 node_card_expired`. Nothing is signed or refreshed on the fly.
 
-Search parameters: `q` (up to 8 terms of 64 bytes over name and tags; a query with no searchable terms behaves like no text filter), the bounded repeated filters `tag`, `language`, `codec`, and `country` (ANDed across classes, ORed within one class), `healthy=true|false` over the local health badge, `limit` (1-1000, default 64), and the opaque `cursor`. Anything else, including duplicates, is rejected with `400 invalid_parameter`.
+Search parameters: `q` (up to 8 terms of 64 bytes over name and tags; a query with no searchable terms behaves like no text filter), the bounded repeated filters `tag`, `language`, `codec`, and `country` (ANDed across classes, ORed within one class), `healthy=true|false` over the local health badge, `limit` (1-1000, default 100), and the opaque `cursor`. Anything else, including duplicates, is rejected with `400 invalid_parameter`.
 
 ```sh
 curl -s "http://127.0.0.1:8787/v1/search?tag=jazz&healthy=true&limit=64"
@@ -103,3 +106,48 @@ make registry-set-policy RECORD=sha256:... STATE=suppressed REASON=admin_suppres
 ```
 
 `check-projection` recomputes every station from the immutable records and exits non-zero when a stored row does not match, listing the differing sections. `rebuild` reconciles those rows, including stray rows for stations whose records are gone, and is a no-op when the projection is already correct. A record that this node cannot interpret (unknown critical member) is stored, relayed, and reported, but never materialized; tombstones remove a station from the projection without deleting any record.
+
+## Pinned federation
+
+Federation is a separate mode, and every pull source is an explicit operator pin. `MVP_LOCAL_READ_ONLY` performs no outbound HTTP and serves no feed route.
+
+```sh
+BAREBUH_MODE=PRIVATE_PINNED_FEDERATION \
+BAREBUH_FEDERATION_ENABLED=true \
+BAREBUH_NODE_ID=oradio:node:ed25519:... \
+BAREBUH_DATABASE_PATH="$PWD/var/registry.sqlite3" \
+node registry-node/src/cli.mjs serve
+```
+
+In this mode the same read API additionally serves the two replication routes; in the default mode they answer `404`, exactly as if they did not exist:
+
+| Route | Purpose |
+| --- | --- |
+| `GET /v1/records?kinds=&limit=&cursor=` | the append-only record feed (`station`, `node`, `observation`) |
+| `GET /v1/snapshot?kinds=&limit=&cursor=` | snapshot recovery over the complete retained set |
+
+Both routes share one query surface: `limit` (1-1000, default 100), the optional sorted `kinds` filter, and the opaque `cursor`. Pages carry `items`, `has_more`, `next_cursor`, and `checkpoint`. A cursor is opaque and bound to the feed, the filter, and the position's anchor record; it expires after 15 minutes, and an expired cursor - or one whose anchor no longer exists here - is answered `410 cursor_expired`/`410 cursor_stale` with the snapshot URL to recover from, never as a shifted page. A snapshot pins the feed head when it starts, so a multi-page import stays stable while the feed keeps appending; its final `checkpoint` is the feed position a consumer resumes from. The feed relays stored records only: quarantine evidence, local policy, and projections are local state and never leave the node.
+
+Operator surface:
+
+```sh
+make registry-peer-add PEER=oradio:node:ed25519:... BASE=https://peer.example/v1/ LABEL=peer-b
+make registry-peer-list
+make registry-replicate                      # every pinned peer, strictly sequentially
+make registry-replicate PEER=oradio:node:ed25519:...
+make registry-peer-remove PEER=oradio:node:ed25519:...
+```
+
+`registry-replicate` prints one bounded outcome per peer (status, pages, items, stored, duplicates, quarantined, retry time, error code) and drains the materialize queue in the same run, so the projection converges without a second command. It exits non-zero when any peer's pull failed, so a scheduler notices without parsing JSON; a peer that was skipped because of its own backoff or open circuit is not a failure.
+
+Pull behaviour, per peer and per run:
+
+- the pinned identity must be proven before any record is pulled: the peer's signed node card is fetched from the pinned origin, verified locally, and must name the pinned node ID and support API major 1. The card is never stored, and nothing it says about other bases or peers is followed - admission is explicit and non-transitive, so a hostile peer cannot make this node contact a third party;
+- every item is re-verified locally: bounded JSON, canonical payload, self-certifying station identity, Ed25519 proof, freshness rules, and a recomputed record ID that must equal the published one. An item that fails becomes bounded quarantine evidence (with the peer as its source) while its valid siblings are stored: a malformed sibling can neither hide its neighbours nor disappear;
+- the page and its cursor commit in one transaction, so a crash before `COMMIT` leaves neither a stored record nor an advanced cursor, and replaying the page afterwards is safe because records are content-addressed;
+- a corrupt page (unparsable, wrong shape, oversized, or a cursor that does not advance) fails the attempt and changes nothing;
+- budgets: 100 records per requested page, 1 MiB per decoded response, a 10-second request timeout, at most 16 pages and 2000 items per peer per run, and at most 32 snapshot pages; a peer that never ends is stopped, not followed;
+- reputation is persisted per peer: consecutive failures, an exponential backoff window with equal jitter (5-minute cap) that honors a bounded `Retry-After`, and a circuit breaker that opens after 3 consecutive failures for 15 minutes. While a peer is in backoff or open, no network I/O happens for it at all;
+- peers are a bulkhead: pulls are strictly sequential, one failed peer never aborts another's pull or the run, and per-peer state is never shared. Pins are capped at 32.
+
+Records a peer delivered keep their provenance (`peer` + node ID) and stamp the station's `last_replication_at` when a projection row exists; `GET /v1/stations/{key}` and `GET /v1/health/{key}` report both. Pulling never enables publishing: `POST /v1/records` stays `403 submission_disabled` in every mode, and no configuration, header, or document can change that.

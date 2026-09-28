@@ -6,13 +6,21 @@ import { readFile } from "node:fs/promises";
 
 import { loadConfig } from "./config.mjs";
 import { createRegistryServer } from "./http.mjs";
+import { addPeer, listPeers, removePeer } from "./federation/peers.mjs";
+import { pullPeers } from "./federation/replicator.mjs";
 import { backupDatabase, checkDatabase, LATEST_SCHEMA_VERSION, migrateDatabase, openDatabase, restoreCheck } from "./store/db.mjs";
 import { drainMaterializeQueue, materializeStation, rebuildProjection, stationReport, verifyProjection } from "./store/materialize.mjs";
 import { INGEST_LIMITS, ingestDocument, setRecordPolicy } from "./store/records.mjs";
 
 function usage() {
-  console.error("usage: registry-node <serve|migrate|check-db|backup|restore-check|effective-config|ingest|drain|materialize|rebuild|check-projection|station|set-policy> [argument]");
+  console.error("usage: registry-node <serve|migrate|check-db|backup|restore-check|effective-config|ingest|drain|materialize|rebuild|check-projection|station|set-policy|peer-add|peer-remove|peer-list|replicate> [argument]");
   process.exitCode = 2;
+}
+
+// Peer pinning and pulling exist only in the pinned-federation mode. A node that does not federate
+// has no pull sources, no feed route, and no reason to reach the network.
+function requireFederation(config) {
+  if (!config.federationEnabled) throw new Error("federation commands require the PRIVATE_PINNED_FEDERATION mode");
 }
 
 // Write commands refuse to run when the schema is not current: operating on an older schema is how
@@ -109,6 +117,37 @@ async function main() {
       const record = setRecordPolicy(db, argument, second, third === undefined ? {} : { reasonCode: third });
       const materialized = record.kind === "station" ? materializeStation(db, record.subjectId) : null;
       console.log(JSON.stringify({ record: { recordId: record.recordId, kind: record.kind, subjectId: record.subjectId, policyState: record.policy }, materialized }));
+      return;
+    }
+    case "peer-add": {
+      if (!argument || !second) return usage();
+      requireFederation(config);
+      using db = openCurrent(config);
+      console.log(JSON.stringify({ peer: addPeer(db, { apiBase: second, label: third ?? "peer", nodeId: argument }) }));
+      return;
+    }
+    case "peer-remove": {
+      if (!argument) return usage();
+      requireFederation(config);
+      using db = openCurrent(config);
+      console.log(JSON.stringify({ nodeId: argument, removed: removePeer(db, argument) }));
+      return;
+    }
+    case "peer-list": {
+      requireFederation(config);
+      using db = openCurrent(config);
+      console.log(JSON.stringify({ peers: listPeers(db) }, null, 2));
+      return;
+    }
+    case "replicate": {
+      requireFederation(config);
+      using db = openCurrent(config);
+      const outcomes = await pullPeers(db, argument === undefined ? {} : { nodeId: argument });
+      // Pulled station history is materialized in the same run, so the projection converges instead
+      // of waiting for a later drain; the drain is bounded like every other batch.
+      const materialized = drainMaterializeQueue(db);
+      console.log(JSON.stringify({ outcomes, materialized }, null, 2));
+      if (outcomes.some(outcome => outcome.status === "failed")) process.exitCode = 1;
       return;
     }
     case "serve": {
