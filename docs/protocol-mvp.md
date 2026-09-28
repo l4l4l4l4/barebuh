@@ -116,7 +116,8 @@ Required fields are `protocol`, `kind`, `station_id`, `sequence`, `parents`,
 - A tombstone uses `station: {"deleted": true}` and follows the same DAG rules.
 - `name` and at least one stream are required unless the record is a tombstone.
 - `languages` use BCP 47 tags. `country`, when present, uses ISO 3166-1 alpha-2.
-- Tags are free text in v1. Schedules and programs are outside the MVP.
+- Tags are free text in v1: at most 32 entries, each 1-64 UTF-8 bytes (the
+  desktop client's bound). Schedules and programs are outside the MVP.
 - Stream URLs MUST be absolute `http` or `https` URLs without userinfo or
   fragments. Clients and nodes SHOULD prefer HTTPS and MUST visibly label
   retained HTTP streams as insecure.

@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import test from "node:test";
 
-import { BOUNDED_JSON_LIMITS, parseJsonStrict } from "../../protocol/v1/lib/conformance.mjs";
+import { BOUNDED_JSON_LIMITS, parseJsonStrict, STATION_TAG_MAX_BYTES } from "../../protocol/v1/lib/conformance.mjs";
 import { stationRecordIssues } from "../src/store/dag.mjs";
 import { INGEST_LIMITS, INGEST_STATUS, ingestDocument, loadStationRecordViews, setRecordPolicy } from "../src/store/records.mjs";
 import {
@@ -114,6 +114,9 @@ test("every published ingest limit passes at N and fails closed at N+1", async t
     { label: "station name bytes", limit: 200, build: size => stationRecord(signer, { sequence: 0, station: { ...stationBody(), name: "n".repeat(size) } }) },
     { label: "streams", limit: 16, build: size => stationRecord(signer, { sequence: 0, station: { name: "S", streams: Array.from({ length: size }, (_, index) => streamFor(streamUrl(index))) } }) },
     { label: "tags", limit: 32, build: size => stationRecord(signer, { sequence: 0, station: { ...stationBody(), tags: Array.from({ length: size }, (_, index) => `tag-${index}`) } }) },
+    // The per-tag byte bound is the desktop client's parser bound: one oversized tag makes the
+    // client drop the whole page, so a record containing one must fail here instead.
+    { label: "tag bytes", limit: STATION_TAG_MAX_BYTES, build: size => stationRecord(signer, { sequence: 0, station: { ...stationBody(), tags: ["t".repeat(size)] } }) },
     { label: "languages", limit: 16, build: size => stationRecord(signer, { sequence: 0, station: { ...stationBody(), languages: Array.from({ length: size }, (_, index) => `en-${index}`) } }) },
     { label: "stream URL bytes", limit: 2048, build: size => stationRecord(signer, { sequence: 0, station: { name: "S", streams: [streamFor(longUrl(size))] } }) },
     { label: "parents", limit: 8, build: size => stationRecord(signer, { sequence: 1, parents: parentIds.slice(0, size), station: stationBody() }) },
