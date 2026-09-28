@@ -36,8 +36,22 @@ import { withTransaction } from "./db.mjs";
 export const INGEST_LIMITS = Object.freeze({
   maxDocumentBytes: 65_536,
   maxQuarantineBytes: 65_536,
+  maxSourceIdBytes: 64,
   quarantineRetentionSeconds: 30 * 24 * 60 * 60,
 });
+
+// Provenance identifiers are local operator input, and they are served by the read API, so their
+// shape is bounded at the point where they enter the store instead of being truncated later.
+const SOURCE_FIELD_PATTERN = /^[A-Za-z0-9._:-]+$/u;
+
+function assertSourceFields(sourceKind, sourceId) {
+  if (typeof sourceId !== "string" || sourceId.length === 0 || Buffer.byteLength(sourceId, "utf8") > INGEST_LIMITS.maxSourceIdBytes || !SOURCE_FIELD_PATTERN.test(sourceId)) {
+    throw new TypeError(`sourceId must be 1-${INGEST_LIMITS.maxSourceIdBytes} characters of [A-Za-z0-9._:-]`);
+  }
+  if (typeof sourceKind !== "string" || sourceKind.length === 0 || Buffer.byteLength(sourceKind, "utf8") > 32 || !SOURCE_FIELD_PATTERN.test(sourceKind)) {
+    throw new TypeError("sourceKind must be 1-32 characters of [A-Za-z0-9._:-]");
+  }
+}
 
 export const QUARANTINE_STAGES = Object.freeze(["bounds", "parse", "validation"]);
 
@@ -288,6 +302,15 @@ function ingestResult(status, verified, record) {
   };
 }
 
+// Protocol instants on the wire are second-precision UTC (docs/protocol-mvp.md), while local
+// timestamps keep milliseconds. The freshness clock for node cards and observations is derived
+// from `now` in wire form: a millisecond clock would make validateEnvelope reject every node card
+// and observation as a malformed validation time.
+function secondInstantOf(value) {
+  const milliseconds = Date.parse(value);
+  return Number.isFinite(milliseconds) ? `${new Date(milliseconds).toISOString().slice(0, 19)}Z` : value;
+}
+
 // ingests one bounded signed envelope. `accept` is the local admission decision: the administrator
 // CLI admits by default, while a future replicator ingests with `accept: false` and holds records
 // for explicit admission. `validationTime` is the caller's clock for node-card and observation
@@ -298,9 +321,10 @@ export function ingestDocument(db, input, options = {}) {
     sourceId = "admin",
     accept = true,
     now = new Date().toISOString(),
-    validationTime = now,
+    validationTime = secondInstantOf(now),
   } = options;
   const bytes = Buffer.isBuffer(input) ? input : Buffer.from(input, "utf8");
+  assertSourceFields(sourceKind, sourceId);
 
   if (bytes.length > INGEST_LIMITS.maxDocumentBytes) {
     return quarantineDocument(db, bytes, { stage: "bounds", reasonCode: "document_too_large", message: `document exceeds ${INGEST_LIMITS.maxDocumentBytes} bytes`, sourceKind, sourceId, now });

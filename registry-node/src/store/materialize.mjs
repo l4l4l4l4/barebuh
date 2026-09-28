@@ -56,10 +56,16 @@ function compareStrings(left, right) {
 
 // Interoperability search order (docs/protocol-mvp.md): text score descending, normalized station
 // name ascending, then station ID ascending. `score` is the projection's relevance score (the
-// FTS5 rank for a text query). The search route itself is later work; the ordering lives here so
-// the projection and the future API cannot diverge.
+// FTS5 rank for a text query). Names and IDs compare as UTF-8 bytes - the same comparison the
+// shared fixture runner uses (protocol/v1/tests/conformance.test.mjs) and the one the read API's
+// SQL ordering uses (SQLite BINARY collation) - so the ordering cannot drift between the
+// materializer, the API, and the fixtures.
+function compareUtf8(left, right) {
+  return Buffer.compare(Buffer.from(left, "utf8"), Buffer.from(right, "utf8"));
+}
+
 export function compareSearchRows(left, right) {
-  return right.score - left.score || compareStrings(left.normalizedName, right.normalizedName) || compareStrings(left.stationId, right.stationId);
+  return right.score - left.score || compareUtf8(left.normalizedName, right.normalizedName) || compareUtf8(left.stationId, right.stationId);
 }
 
 // The station-local record view the materializer classifies. A parent stored under another subject

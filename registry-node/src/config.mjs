@@ -7,10 +7,15 @@ const ALLOWED_ENVIRONMENT = new Set([
   "BAREBUH_HOST",
   "BAREBUH_MODE",
   "BAREBUH_NETWORK_PROBES_ENABLED",
+  "BAREBUH_NODE_ID",
   "BAREBUH_PORT",
   "BAREBUH_PUBLIC_BASE_URL",
   "BAREBUH_WRITES_ENABLED",
 ]);
+
+// The node identity is public data, not key material: this process serves a card that was signed
+// elsewhere, and it holds no signing key (docs/registry-node-security-contract.md KEY-01).
+const NODE_ID_PATTERN = /^oradio:node:ed25519:([A-Za-z0-9_-]{43})$/u;
 
 function parseBoolean(value, name) {
   if (value === undefined || value === "false") return false;
@@ -22,6 +27,17 @@ function parsePort(value) {
   const port = Number(value ?? "8787");
   if (!Number.isSafeInteger(port) || port < 0 || port > 65535) throw new Error("BAREBUH_PORT must be an integer from 0 through 65535");
   return port;
+}
+
+// An empty value means "no node identity configured", which is the default: /v1/node then fails
+// closed with `node_card_unavailable` instead of serving somebody else's card.
+function parseNodeId(value) {
+  if (value === undefined || value === "") return null;
+  const match = NODE_ID_PATTERN.exec(value);
+  if (!match || Buffer.from(match[1], "base64url").toString("base64url") !== match[1]) {
+    throw new Error("BAREBUH_NODE_ID must be a node identity (oradio:node:ed25519:<digest>)");
+  }
+  return value;
 }
 
 export function assertSupportedRuntime(version = process.versions.node) {
@@ -61,6 +77,7 @@ export function loadConfig(environment = process.env) {
     host,
     port: parsePort(environment.BAREBUH_PORT),
     publicBaseUrl: publicBaseUrl.href,
+    nodeId: parseNodeId(environment.BAREBUH_NODE_ID),
     writesEnabled,
     networkProbesEnabled,
     federationEnabled,

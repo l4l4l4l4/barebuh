@@ -345,6 +345,56 @@ test("node cards are stored with provenance under their signed lifetime and neve
   assertStoreUntouched(registry.db, before, { quarantined: 1 });
 });
 
+// Regression: the default freshness clock must already be the wire's second-precision instant. A
+// millisecond clock quarantines every node card and observation the administrator CLI ingests, so
+// those records can never be admitted or served.
+test("the default freshness clock admits live node cards and observations", async t => {
+  const registry = await createRegistry(t);
+  const node = createSigner("node");
+  const second = milliseconds => `${new Date(milliseconds).toISOString().slice(0, 19)}Z`;
+  const now = Date.now();
+
+  const card = ingestDocument(registry.db, node.bytes(nodeCardRecord(node, { issuedAt: second(now - 60_000), expiresAt: second(now + 3_600_000) })));
+  assert.equal(card.status, INGEST_STATUS.stored, card.message ?? "");
+  assert.equal(card.kind, "node");
+  assert.equal(card.policyState, "admitted");
+
+  const station = createSigner("station");
+  const genesis = stationRecord(station, { sequence: 0, station: stationBody("Fresh FM", { streams: 1 }) });
+  assert.equal(ingestDocument(registry.db, station.bytes(genesis), { validationTime: VALIDATION_TIME }).status, INGEST_STATUS.stored);
+  seedProjection(registry.db, { stationId: station.identity, recordId: recordIdOf(genesis), urls: [streamUrl(0)] });
+
+  const observation = ingestDocument(registry.db, node.bytes(observationRecord(node, {
+    stationId: station.identity,
+    endpoint: { endpoint_index: 0 },
+    observedAt: second(now - 60_000),
+    expiresAt: second(now + 1_800_000),
+  })));
+  assert.equal(observation.status, INGEST_STATUS.stored, observation.message ?? "");
+  assert.equal(policyRow(registry.db, observation.recordId).state, "admitted");
+});
+
+// Provenance identifiers are served in API responses, so they are bounded and validated at the
+// boundary: a caller error fails loudly instead of storing an unbounded source record.
+test("provenance source identifiers are bounded, validated, and stored verbatim when valid", async t => {
+  const registry = await createRegistry(t);
+  const station = createSigner("station");
+  const bytes = station.bytes(stationRecord(station, { sequence: 0, station: stationBody("Source Bound FM") }));
+
+  for (const sourceId of ["", "has space", "sla/sh", "ключ", "x".repeat(INGEST_LIMITS.maxSourceIdBytes + 1)]) {
+    assert.throws(() => ingestDocument(registry.db, bytes, { sourceId }), TypeError, JSON.stringify(sourceId));
+  }
+  for (const sourceKind of ["", "has space", "x".repeat(33)]) {
+    assert.throws(() => ingestDocument(registry.db, bytes, { sourceKind }), TypeError, JSON.stringify(sourceKind));
+  }
+  assert.equal(storeCounts(registry.db).records, 0, "a rejected source identifier must not store anything");
+
+  // The documented shape still admits the kinds and identifiers peers and operators use.
+  const stored = ingestDocument(registry.db, bytes, { sourceKind: "peer", sourceId: "node-a.example:8787" });
+  assert.equal(stored.status, INGEST_STATUS.stored);
+  assert.deepEqual(registry.db.prepare("SELECT source_kind, source_id FROM record_sources WHERE record_id = ?").all(stored.recordId).map(row => ({ ...row })), [{ source_kind: "peer", source_id: "node-a.example:8787" }]);
+});
+
 test("unknown non-critical members are preserved byte-for-byte and critical members block materialization", async t => {
   const registry = await createRegistry(t);
   const signer = createSigner("station");
