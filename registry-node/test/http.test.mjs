@@ -71,11 +71,16 @@ function jsonBody(rawResponse) {
   return JSON.parse(rawResponse.slice(separator + 4));
 }
 
-test("route inventory contains only discovery and operational health GETs", () => {
+test("route inventory contains only bounded reads and the refused submission boundary", () => {
   assert.deepEqual(ROUTES, [
     "GET /.well-known/open-radio-registry",
     "GET /health/live",
     "GET /health/ready",
+    "GET /v1/node",
+    "GET /v1/search",
+    "GET /v1/stations/{station-key-digest}",
+    "GET /v1/health/{station-key-digest}",
+    "POST /v1/records",
   ]);
 });
 
@@ -120,15 +125,20 @@ test("readiness fails closed when the database is not migrated to the current sc
   assert.deepEqual(await ready.json(), { status: "not_ready", reason: "local_database" });
 });
 
-test("mutation methods and unimplemented protocol routes are absent", async t => {
+test("mutation methods are refused, the submission boundary is closed, and the record feed is absent", async t => {
   const base = await startServer(t);
   for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
     const response = await fetch(`${base}/.well-known/open-radio-registry`, { method });
     assert.equal(response.status, 405);
-    assert.equal(response.headers.get("allow"), "GET");
+    assert.equal(response.headers.get("allow"), "GET, HEAD");
   }
+  // The submission boundary is a real route that always refuses before reading a body.
+  const submission = await fetch(`${base}/v1/records`, { method: "POST", body: '{"payload":{}}' });
+  assert.equal(submission.status, 403);
+  assert.deepEqual((await submission.json()).error.code, "submission_disabled");
+  // The read-only record feed itself is still absent, and the search API is served.
   assert.equal((await fetch(`${base}/v1/records`)).status, 404);
-  assert.equal((await fetch(`${base}/v1/search`)).status, 404);
+  assert.equal((await fetch(`${base}/v1/search?limit=64`)).status, 200);
 });
 
 // Regression coverage for review t_bf762a64 blocker B1: a malformed request-target must be
