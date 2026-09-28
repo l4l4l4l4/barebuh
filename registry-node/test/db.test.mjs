@@ -23,22 +23,22 @@ test("migration creates the authoritative and projection schema with hardened pr
 
   const first = await migrateDatabase(databasePath, { migrationsDir });
   const second = await migrateDatabase(databasePath, { migrationsDir });
-  assert.equal(first.applied, 2);
+  assert.equal(first.applied, 3);
   assert.equal(second.applied, 0);
   assert.equal((await stat(databasePath)).mode & 0o777, 0o600);
 
   using db = openDatabase(databasePath, { readOnly: true });
   const tables = db.prepare("SELECT name FROM sqlite_master WHERE type IN ('table', 'view') ORDER BY name").all().map(row => row.name);
-  for (const table of ["records", "record_parents", "record_sources", "record_policy", "materialize_queue", "station_state", "station_projection", "station_fts"]) {
+  for (const table of ["records", "record_parents", "record_sources", "record_policy", "materialize_queue", "station_state", "station_projection", "station_fts", "federation_peers"]) {
     assert.ok(tables.includes(table), `missing ${table}`);
   }
   assert.equal(db.prepare("PRAGMA journal_mode").get().journal_mode, "delete");
   assert.equal(db.prepare("PRAGMA synchronous").get().synchronous, 2);
   assert.equal(db.prepare("PRAGMA foreign_keys").get().foreign_keys, 1);
   assert.equal(db.prepare("PRAGMA trusted_schema").get().trusted_schema, 0);
-  assert.equal(db.prepare("PRAGMA user_version").get().user_version, 2);
+  assert.equal(db.prepare("PRAGMA user_version").get().user_version, LATEST_SCHEMA_VERSION);
   assert.ok(db.prepare("PRAGMA compile_options").all().some(row => row.compile_options === "ENABLE_FTS5"));
-  assert.deepEqual(checkDatabase(db), { foreignKeyViolations: [], quickCheck: "ok", schemaVersion: 2 });
+  assert.deepEqual(checkDatabase(db), { foreignKeyViolations: [], quickCheck: "ok", schemaVersion: LATEST_SCHEMA_VERSION });
 });
 
 test("the committed schema version matches the highest migration and the ledger", async t => {
@@ -60,13 +60,14 @@ test("the committed schema version matches the highest migration and the ledger"
   }
 });
 
-test("schema-1 databases migrate to the materializer schema without rewriting stored state", async t => {
+test("schema-1 databases migrate to the current schema without rewriting stored state", async t => {
   const directory = await temporaryDirectory(t);
   const databasePath = join(directory, "registry.sqlite3");
   const schema1Migrations = join(directory, "migrations-1");
   await cp(migrationsDir, schema1Migrations, { recursive: true });
   await chmod(schema1Migrations, 0o700);
   await rm(join(schema1Migrations, "0002-materializer.sql"));
+  await rm(join(schema1Migrations, "0003-federation.sql"));
 
   // Build a schema-1 database and give it a station state row exactly as schema 1 allowed it.
   const first = await migrateDatabase(databasePath, { migrationsDir: schema1Migrations });
@@ -80,8 +81,8 @@ test("schema-1 databases migrate to the materializer schema without rewriting st
   legacy.close();
 
   const upgraded = await migrateDatabase(databasePath, { migrationsDir });
-  assert.equal(upgraded.applied, 1);
-  assert.equal(upgraded.schemaVersion, 2);
+  assert.equal(upgraded.applied, 2);
+  assert.equal(upgraded.schemaVersion, LATEST_SCHEMA_VERSION);
   using db = openDatabase(databasePath, { readOnly: true });
   assert.deepEqual(db.prepare("SELECT station_id, state, generation, forked FROM station_state").all().map(row => ({ ...row })),
                    [{ station_id: "oradio:station:ed25519:x", state: "active", generation: 3, forked: 0 }]);
@@ -123,7 +124,7 @@ test("online backup is integrity-checked and restorable without network access",
   assert.ok(backupResult.pages >= 1);
   assert.match(backupResult.sha256, /^[0-9a-f]{64}$/u);
   assert.equal((await stat(backupPath)).mode & 0o777, 0o600);
-  assert.deepEqual(await restoreCheck(backupPath), { foreignKeyViolations: [], quickCheck: "ok", schemaVersion: 2 });
+  assert.deepEqual(await restoreCheck(backupPath), { foreignKeyViolations: [], quickCheck: "ok", schemaVersion: LATEST_SCHEMA_VERSION });
 
   using tampered = openDatabase(backupPath);
   tampered.prepare("UPDATE schema_migrations SET sha256 = ? WHERE version = 1").run("0".repeat(64));

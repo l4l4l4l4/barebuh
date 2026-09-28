@@ -38,8 +38,36 @@ test("the optional node identity is a public identifier and never a key", () => 
 test("unsupported mutation, probe, federation, and public-listener settings fail closed", () => {
   assert.throws(() => loadConfig({ BAREBUH_WRITES_ENABLED: "true" }), /writes are not implemented/u);
   assert.throws(() => loadConfig({ BAREBUH_NETWORK_PROBES_ENABLED: "true" }), /network probes are not implemented/u);
-  assert.throws(() => loadConfig({ BAREBUH_FEDERATION_ENABLED: "true" }), /federation is not implemented/u);
+  // Federation is a mode, not a flag: the flag alone cannot promote the default read-only mode,
+  // and the mode cannot run with federation switched off.
+  assert.throws(() => loadConfig({ BAREBUH_FEDERATION_ENABLED: "true" }), /PRIVATE_PINNED_FEDERATION mode/u);
+  assert.throws(() => loadConfig({ BAREBUH_MODE: "PRIVATE_PINNED_FEDERATION" }), /requires BAREBUH_FEDERATION_ENABLED=true/u);
+  assert.throws(() => loadConfig({ BAREBUH_MODE: "PUBLIC_PILOT", BAREBUH_FEDERATION_ENABLED: "true" }), /modes are implemented/u);
   assert.throws(() => loadConfig({ BAREBUH_HOST: "0.0.0.0" }), /loopback/u);
   assert.throws(() => loadConfig({ BAREBUH_PUBLIC_BASE_URL: "http://registry.example/" }), /HTTPS/u);
   assert.throws(() => loadConfig({ BAREBUH_UNKNOWN_SETTING: "1" }), /unknown Barebuh setting/u);
+});
+
+test("the pinned-federation mode is loopback-only, keeps writes and probes disabled, and reports one pull worker", () => {
+  const config = loadConfig({
+    BAREBUH_FEDERATION_ENABLED: "true",
+    BAREBUH_MODE: "PRIVATE_PINNED_FEDERATION",
+    BAREBUH_NODE_ID: "oradio:node:ed25519:Wzz6buDMljkddWS2frYOsSzLipZaxrhDmo5Ix8G-PK8",
+  });
+
+  assert.deepEqual(config, {
+    mode: "PRIVATE_PINNED_FEDERATION",
+    databasePath: "var/registry.sqlite3",
+    host: "127.0.0.1",
+    port: 8787,
+    publicBaseUrl: "https://registry.invalid/",
+    nodeId: "oradio:node:ed25519:Wzz6buDMljkddWS2frYOsSzLipZaxrhDmo5Ix8G-PK8",
+    writesEnabled: false,
+    networkProbesEnabled: false,
+    federationEnabled: true,
+    peerWorkers: 1,
+    stationCheckerWorkers: 0,
+  });
+  assert.throws(() => loadConfig({ BAREBUH_FEDERATION_ENABLED: "true", BAREBUH_MODE: "PRIVATE_PINNED_FEDERATION", BAREBUH_WRITES_ENABLED: "true" }), /writes are not implemented/u);
+  assert.throws(() => loadConfig({ BAREBUH_FEDERATION_ENABLED: "true", BAREBUH_MODE: "PRIVATE_PINNED_FEDERATION", BAREBUH_HOST: "0.0.0.0" }), /loopback/u);
 });

@@ -6,16 +6,20 @@
 // This module owns exactly four things (docs/adr/0002-private-registry-node.md): request-target and
 // method handling, query extraction, cache validators (strong ETag with If-None-Match/304), and
 // bounded error envelopes. It contains no SQL and no cryptography beyond hashing response bytes;
-// every response body comes from the read model in ./store/views.mjs.
+// every response body comes from the read model in ./store/views.mjs or ./store/feed.mjs.
 //
 // Route inventory (AUTH-01): read-only GET/HEAD resources plus the *refused* submission boundary.
 // `POST /v1/records` exists so the boundary is explicit and testable, and it refuses before a
 // single body byte is read; no configuration, header, or document can enable it in this release.
+// `GET /v1/records` and `GET /v1/snapshot` are the pinned-federation read views and are served
+// only when the operator has enabled that mode; the default local read-only mode keeps them
+// absent.
 
 import { createHash, randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 
 import { checkDatabase, LATEST_SCHEMA_VERSION } from "./store/db.mjs";
+import { parseFeedQuery, recordsFeedPage, snapshotPage } from "./store/feed.mjs";
 import { healthResource, nodeCardResource, parseSearchQuery, ReadRequestError, searchPage, stationIdFromKey, stationResource } from "./store/views.mjs";
 
 export const ROUTES = Object.freeze([
@@ -23,6 +27,8 @@ export const ROUTES = Object.freeze([
   "GET /health/live",
   "GET /health/ready",
   "GET /v1/node",
+  "GET /v1/records", // served only when pinned federation is enabled; the POST boundary below always refuses
+  "GET /v1/snapshot", // served only when pinned federation is enabled
   "GET /v1/search",
   "GET /v1/stations/{station-key-digest}",
   "GET /v1/health/{station-key-digest}",
@@ -39,7 +45,8 @@ const READINESS_PATH = "/health/ready";
 const LIVENESS_PATH = "/health/live";
 const NODE_CARD_PATH = "/v1/node";
 const SEARCH_PATH = "/v1/search";
-const SUBMISSION_PATH = "/v1/records";
+const RECORDS_PATH = "/v1/records";
+const SNAPSHOT_PATH = "/v1/snapshot";
 const STATIONS_PREFIX = "/v1/stations/";
 const HEALTH_PREFIX = "/v1/health/";
 
@@ -50,6 +57,7 @@ const HEALTH_PREFIX = "/v1/health/";
 const DESCRIPTOR_CACHE_CONTROL = "public, max-age=300";
 const STATION_CACHE_CONTROL = "public, max-age=60";
 const SEARCH_CACHE_CONTROL = "no-store";
+const FEED_CACHE_CONTROL = "no-store";
 const NODE_CARD_MAX_AGE_SECONDS = 300;
 
 function jsonBytes(value) {
@@ -103,8 +111,12 @@ function sendError(request, response, status, { code, message, details = null, a
   }, { cacheControl: "no-store", allow, close });
 }
 
+function apiBaseOf(publicBaseUrl) {
+  return new URL("v1/", publicBaseUrl);
+}
+
 function descriptor(publicBaseUrl) {
-  const base = new URL("v1/", publicBaseUrl);
+  const base = apiBaseOf(publicBaseUrl);
   return {
     protocol: "oradio/1",
     api_versions: [1],
@@ -158,7 +170,8 @@ function routeOf(pathname) {
   if (pathname === READINESS_PATH) return "readiness";
   if (pathname === NODE_CARD_PATH) return "node-card";
   if (pathname === SEARCH_PATH) return "search";
-  if (pathname === SUBMISSION_PATH) return "submission";
+  if (pathname === RECORDS_PATH) return "records";
+  if (pathname === SNAPSHOT_PATH) return "snapshot";
   if (pathname.startsWith(STATIONS_PREFIX) && !pathname.slice(STATIONS_PREFIX.length).includes("/")) return "station";
   if (pathname.startsWith(HEALTH_PREFIX) && !pathname.slice(HEALTH_PREFIX.length).includes("/")) return "health";
   return null;
@@ -212,6 +225,22 @@ function handleRead(request, response, { config, db, pathname, url, nowIso, rout
     sendJson(request, response, 200, searchPage(db, { filter, limit, cursor, observerId: config.nodeId, nowIso }), { cacheControl: SEARCH_CACHE_CONTROL });
     return;
   }
+  // The records feed and the snapshot recovery view exist only in the pinned-federation mode. The
+  // default local read-only mode keeps them absent (404) exactly as reviewed: a node that does not
+  // federate never relays its record store, and the descriptor's URLs stay unserved there.
+  if (route === "records" || route === "snapshot") {
+    if (!config.federationEnabled) {
+      sendError(request, response, 404, { code: "not_found", message: "This node does not serve a record feed." });
+      return;
+    }
+    const { kinds, limit, cursor } = parseFeedQuery(url.searchParams);
+    const snapshotUrl = new URL("snapshot", apiBaseOf(config.publicBaseUrl)).href;
+    const page = route === "records"
+      ? recordsFeedPage(db, { kinds, cursor, limit, nowIso, snapshotUrl })
+      : snapshotPage(db, { kinds, cursor, limit, nowIso, snapshotUrl });
+    sendJson(request, response, 200, page, { cacheControl: FEED_CACHE_CONTROL });
+    return;
+  }
   if (route === "station") {
     const stationId = stationIdFromKey(pathname.slice(STATIONS_PREFIX.length));
     sendJson(request, response, 200, stationResource(db, stationId, { observerId: config.nodeId, nowIso }), { cacheControl: STATION_CACHE_CONTROL });
@@ -222,8 +251,9 @@ function handleRead(request, response, { config, db, pathname, url, nowIso, rout
     sendJson(request, response, 200, healthResource(db, stationId, { observerId: config.nodeId, nowIso }), { cacheControl: STATION_CACHE_CONTROL });
     return;
   }
-  // The record feed itself is not implemented on this node; only its submission boundary exists.
-  sendError(request, response, 404, { code: "not_found", message: "This node does not serve a record feed." });
+  // Defensive fallthrough: every route named by `routeOf` is handled above, so reaching this point
+  // would be a routing bug; it answers with the bounded not-found envelope rather than a 500.
+  sendError(request, response, 404, { code: "not_found", message: "Route is not implemented by this node." });
 }
 
 function handleRequest(request, response, { config, db, clock }) {
@@ -241,12 +271,12 @@ function handleRequest(request, response, { config, db, clock }) {
     sendError(request, response, 404, { code: "not_found", message: "Route is not implemented by this node." });
     return;
   }
-  if (route === "submission" && method === "POST") {
+  if (route === "records" && method === "POST") {
     refuseSubmission(request, response);
     return;
   }
   if (!isRead) {
-    sendError(request, response, 405, { code: "method_not_allowed", message: "This node exposes no mutation routes.", allow: route === "submission" ? "GET, HEAD, POST" : "GET, HEAD" });
+    sendError(request, response, 405, { code: "method_not_allowed", message: "This node exposes no mutation routes.", allow: route === "records" ? "GET, HEAD, POST" : "GET, HEAD" });
     return;
   }
   try {

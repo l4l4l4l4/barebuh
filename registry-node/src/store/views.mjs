@@ -23,7 +23,13 @@
 import { createHash } from "node:crypto";
 
 import { canonicalize, parseJsonStrict } from "../../../protocol/v1/lib/conformance.mjs";
+import { CURSOR_LIMITS, cursorExpiry, cursorFilterMatches, cursorInvalid, decodeCursorToken, encodeCursorToken, ReadRequestError, secondInstant } from "./cursor.mjs";
 import { normalizeText } from "./materialize.mjs";
+
+// The request-time error class and the opaque-token codec are defined once in ./cursor.mjs and
+// re-exported here because the HTTP layer and the station/search tests import them from the read
+// model. `secondInstant` is likewise shared with the records feed.
+export { ReadRequestError, secondInstant };
 
 export const READ_LIMITS = Object.freeze({
   defaultSearchLimit: 100,
@@ -36,22 +42,10 @@ export const READ_LIMITS = Object.freeze({
   maxHealthObservations: 64,
   maxProvenanceSources: 32,
   maxProvenanceBytes: 4096,
-  maxCursorBytes: 4096,
-  maxCursorOffset: 1_000_000,
-  cursorLifetimeSeconds: 15 * 60,
+  maxCursorBytes: CURSOR_LIMITS.maxCursorBytes,
+  maxCursorOffset: CURSOR_LIMITS.maxCursorOffset,
+  cursorLifetimeSeconds: CURSOR_LIMITS.cursorLifetimeSeconds,
 });
-
-// A request-time failure with a stable machine-readable code. The HTTP layer maps these into the
-// shared JSON error envelope; everything else it does not recognize becomes a bounded 500.
-export class ReadRequestError extends Error {
-  constructor(status, code, message, details = null) {
-    super(message);
-    this.name = "ReadRequestError";
-    this.status = status;
-    this.code = code;
-    this.details = details;
-  }
-}
 
 export const HEALTH_STATES = Object.freeze(["unknown", "ok", "degraded", "unreachable", "blocked"]);
 
@@ -85,21 +79,10 @@ export function policyStateOf(materializationState) {
   return POLICY_STATE_BY_MATERIALIZATION_STATE[materializationState] ?? null;
 }
 
-const SECOND_INSTANT_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/u;
 const STATION_DIGEST_PATTERN = /^[A-Za-z0-9_-]{43}$/u;
 const STATION_ID_PATTERN = /^oradio:station:ed25519:[A-Za-z0-9_-]{43}$/u;
 const SNAPSHOT_PATTERN = /^s1\.[A-Za-z0-9_-]{43}$/u;
-const CURSOR_PATTERN = /^c1\.([A-Za-z0-9_-]+)$/u;
 const SAFE_NAME_PATTERN = /^[A-Za-z0-9_-]{1,32}$/u;
-
-// Local timestamps are stored with millisecond precision; the wire profile uses second-precision
-// RFC 3339 UTC instants (docs/protocol-mvp.md), which also compare correctly as plain strings.
-export function secondInstant(value) {
-  if (typeof value !== "string") return null;
-  const milliseconds = Date.parse(value);
-  if (!Number.isFinite(milliseconds)) return null;
-  return `${new Date(milliseconds).toISOString().slice(0, 19)}Z`;
-}
 
 function canonicalBase64UrlDigest(value) {
   return Buffer.from(value, "base64url").toString("base64url") === value;
@@ -287,30 +270,16 @@ function snapshotToken(keys) {
 }
 
 export function encodeSearchCursor({ filter, offset, snapshot, expiresAt }) {
-  const payload = canonicalize({ expires_at: expiresAt, feed: "search", filter, offset, snapshot, v: 1 });
-  return `c1.${Buffer.from(payload, "utf8").toString("base64url")}`;
+  return encodeCursorToken({ expires_at: expiresAt, feed: "search", filter, offset, snapshot, v: 1 });
 }
 
 function decodeSearchCursor(token, { filter, snapshot, nowInstant }) {
-  const invalid = () => new ReadRequestError(400, "cursor_invalid", "The cursor is invalid or has expired.");
-  if (typeof token !== "string" || Buffer.byteLength(token, "utf8") > READ_LIMITS.maxCursorBytes) throw invalid();
-  const match = CURSOR_PATTERN.exec(token);
-  if (!match) throw invalid();
-  let payload;
-  try {
-    const bytes = Buffer.from(match[1], "base64url");
-    if (bytes.toString("base64url") !== match[1]) throw new Error("non-canonical encoding");
-    payload = parseJsonStrict(bytes);
-  } catch {
-    throw invalid();
-  }
-  if (payload === null || typeof payload !== "object" || Array.isArray(payload)) throw invalid();
-  if (payload.v !== 1 || typeof payload.snapshot !== "string" || !SNAPSHOT_PATTERN.test(payload.snapshot)) throw invalid();
-  if (!Number.isSafeInteger(payload.offset) || payload.offset < 0 || payload.offset > READ_LIMITS.maxCursorOffset) throw invalid();
-  if (typeof payload.expires_at !== "string" || !SECOND_INSTANT_PATTERN.test(payload.expires_at) || payload.expires_at <= nowInstant) throw invalid();
+  const payload = decodeCursorToken(token, { nowInstant });
+  if (typeof payload.snapshot !== "string" || !SNAPSHOT_PATTERN.test(payload.snapshot)) throw cursorInvalid();
+  if (!Number.isSafeInteger(payload.offset) || payload.offset < 0 || payload.offset > READ_LIMITS.maxCursorOffset) throw cursorInvalid();
   if (payload.feed !== "search") throw new ReadRequestError(400, "cursor_binding_mismatch", "The cursor belongs to a different feed.");
-  if (canonicalize(payload.filter) !== canonicalize(filter)) throw new ReadRequestError(400, "cursor_binding_mismatch", "The cursor belongs to a different query.");
-  if (payload.snapshot !== snapshot) throw invalid();
+  if (!cursorFilterMatches(payload.filter, filter)) throw new ReadRequestError(400, "cursor_binding_mismatch", "The cursor belongs to a different query.");
+  if (payload.snapshot !== snapshot) throw cursorInvalid();
   return { offset: payload.offset };
 }
 
@@ -419,7 +388,7 @@ export function searchPage(db, { filter, limit, cursor, observerId, nowIso }) {
   const offset = cursor === null ? 0 : decodeSearchCursor(cursor, { filter, snapshot, nowInstant }).offset;
   const items = keys.slice(offset, offset + limit).map(key => ({ ...baseItem(db, key.stationId, { observerId, nowInstant }), score: key.score }));
   const hasMore = offset + items.length < keys.length;
-  const expiresAt = secondInstant(new Date(Date.parse(nowIso) + READ_LIMITS.cursorLifetimeSeconds * 1000).toISOString());
+  const expiresAt = cursorExpiry(nowIso);
   return {
     items,
     next_cursor: hasMore ? encodeSearchCursor({ filter, offset: offset + items.length, snapshot, expiresAt }) : null,

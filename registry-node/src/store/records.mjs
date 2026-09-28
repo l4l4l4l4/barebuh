@@ -278,7 +278,10 @@ function insertRecord(db, { document, verified, bytes, sourceKind, sourceId, now
   }
 }
 
-function quarantineDocument(db, bytes, { stage, reasonCode, message, sourceKind, sourceId, now }) {
+// Bounded quarantine evidence: invalid input is recorded as evidence and never as a record. The
+// replicator (../federation/replicator.mjs) uses this for invalid siblings in an otherwise valid
+// feed page, so a peer cannot make a malformed item disappear or hide its valid neighbours.
+export function quarantineDocument(db, bytes, { stage, reasonCode, message, sourceKind, sourceId, now }) {
   const expiresAt = new Date(Date.parse(now) + INGEST_LIMITS.quarantineRetentionSeconds * 1000).toISOString();
   withTransaction(db, () => {
     db.prepare(`
@@ -311,10 +314,27 @@ function secondInstantOf(value) {
   return Number.isFinite(milliseconds) ? `${new Date(milliseconds).toISOString().slice(0, 19)}Z` : value;
 }
 
+// One verified document, applied inside the caller's transaction when one is open. The replicator
+// (../federation/replicator.mjs) calls this once per page item inside the single page transaction
+// that also commits the peer cursor, so a page's records and its cursor are always committed
+// together: an interrupted page leaves neither behind.
+export function ingestVerifiedDocument(db, { document, verified, bytes, sourceKind, sourceId, now, accept }) {
+  return withTransaction(db, () => {
+    const existing = readRecord(db, verified.recordId);
+    if (existing) {
+      recordProvenance(db, verified.recordId, { sourceKind, sourceId, now });
+      return ingestResult(INGEST_STATUS.duplicate, verified, existing);
+    }
+    insertRecord(db, { document, verified, bytes, sourceKind, sourceId, now, accept });
+    return ingestResult(INGEST_STATUS.stored, verified, readRecord(db, verified.recordId));
+  });
+}
+
 // ingests one bounded signed envelope. `accept` is the local admission decision: the administrator
-// CLI admits by default, while a future replicator ingests with `accept: false` and holds records
-// for explicit admission. `validationTime` is the caller's clock for node-card and observation
-// freshness; station records never expire.
+// CLI admits by default, and the pinned-peer replicator (federation/replicator.mjs) also admits -
+// pinning a peer is the explicit admission decision - while `accept: false` remains the hook for a
+// future moderated pull that holds records for per-record review. `validationTime` is the caller's
+// clock for node-card and observation freshness; station records never expire.
 export function ingestDocument(db, input, options = {}) {
   const {
     sourceKind = "local",
@@ -344,17 +364,7 @@ export function ingestDocument(db, input, options = {}) {
     return quarantineDocument(db, bytes, { stage: "validation", reasonCode: "validation_error", message: boundedMessage(error), sourceKind, sourceId, now });
   }
 
-  const existing = readRecord(db, verified.recordId);
-  if (existing) {
-    withTransaction(db, () => recordProvenance(db, verified.recordId, { sourceKind, sourceId, now }));
-    return ingestResult(INGEST_STATUS.duplicate, verified, existing);
-  }
-
-  const record = withTransaction(db, () => {
-    insertRecord(db, { document, verified, bytes, sourceKind, sourceId, now, accept });
-    return readRecord(db, verified.recordId);
-  });
-  return ingestResult(INGEST_STATUS.stored, verified, record);
+  return ingestVerifiedDocument(db, { document, verified, bytes, sourceKind, sourceId, now, accept });
 }
 
 // Local administrator policy change. Admission re-runs the rule classification and the

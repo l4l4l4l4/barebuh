@@ -10,7 +10,7 @@ import test from "node:test";
 
 import { loadConfig } from "../src/config.mjs";
 import { createRegistryServer, ROUTES } from "../src/http.mjs";
-import { migrateDatabase, openDatabase } from "../src/store/db.mjs";
+import { LATEST_SCHEMA_VERSION, migrateDatabase, openDatabase } from "../src/store/db.mjs";
 
 const migrationsDir = new URL("../migrations/", import.meta.url);
 
@@ -77,6 +77,8 @@ test("route inventory contains only bounded reads and the refused submission bou
     "GET /health/live",
     "GET /health/ready",
     "GET /v1/node",
+    "GET /v1/records",
+    "GET /v1/snapshot",
     "GET /v1/search",
     "GET /v1/stations/{station-key-digest}",
     "GET /v1/health/{station-key-digest}",
@@ -115,7 +117,7 @@ test("liveness does no dependency work and readiness checks only the local datab
 
   const ready = await fetch(`${base}/health/ready`);
   assert.equal(ready.status, 200);
-  assert.deepEqual(await ready.json(), { status: "ready", schema_version: 2 });
+  assert.deepEqual(await ready.json(), { status: "ready", schema_version: LATEST_SCHEMA_VERSION });
 });
 
 test("readiness fails closed when the database is not migrated to the current schema", async t => {

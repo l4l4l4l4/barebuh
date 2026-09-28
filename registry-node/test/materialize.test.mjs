@@ -14,7 +14,7 @@ import test from "node:test";
 import { canonicalize, parseJsonStrict } from "../../protocol/v1/lib/conformance.mjs";
 import { classifyStationRecords } from "../src/store/dag.mjs";
 import { computeStationMaterialization } from "../src/store/dag.mjs";
-import { checkDatabase } from "../src/store/db.mjs";
+import { checkDatabase, LATEST_SCHEMA_VERSION } from "../src/store/db.mjs";
 import { compareSearchRows, drainMaterializeQueue, materializeStation, normalizeText, rebuildProjection, stationReport, storedStationSnapshot, verifyProjection } from "../src/store/materialize.mjs";
 import { enqueueStation, INGEST_STATUS, ingestDocument, setRecordPolicy } from "../src/store/records.mjs";
 import { countRows, createRegistry, createSigner, recordIdOf, stationBody, stationRecord, streamUrl, VALIDATION_TIME } from "./fixtures.mjs";
@@ -383,7 +383,7 @@ test("a killed process cannot commit a partial station update and the committed 
   assert.equal(probe.status, 7, probe.stderr || probe.stdout);
 
   registry.reopen();
-  assert.deepEqual(checkDatabase(registry.db), { foreignKeyViolations: [], quickCheck: "ok", schemaVersion: 2 });
+  assert.deepEqual(checkDatabase(registry.db), { foreignKeyViolations: [], quickCheck: "ok", schemaVersion: LATEST_SCHEMA_VERSION });
   assert.equal(countRows(registry.db, "records"), 2, "committed records survived the kill");
   assert.equal(countRows(registry.db, "materialize_queue"), 1, "the probe's uncommitted queue row was rolled back; only the station is queued");
   assert.equal(countRows(registry.db, "station_state"), 0, "nothing was materialized by the probe");

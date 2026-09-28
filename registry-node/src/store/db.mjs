@@ -9,7 +9,7 @@ import { backup, DatabaseSync } from "node:sqlite";
 
 // The schema version this binary expects. It must equal the highest committed migration
 // (db.test.mjs pins that invariant) and is what `serve` requires before it listens.
-export const LATEST_SCHEMA_VERSION = 2;
+export const LATEST_SCHEMA_VERSION = 3;
 
 const MIGRATION_PATTERN = /^(?<version>[0-9]{4})-(?<name>[a-z0-9-]+)\.sql$/u;
 const SQLITE_LIMITS = Object.freeze({
@@ -72,7 +72,14 @@ export function openDatabase(path, { readOnly = false } = {}) {
 
 // Every write in the store runs inside BEGIN IMMEDIATE: the process may be killed at any point
 // and SQLite's rollback journal guarantees that only fully committed state survives restart.
+//
+// A call made while a transaction is already open joins that transaction instead of opening a
+// nested one (SQLite has no nested BEGIN): the caller that opened the transaction owns the
+// commit, and an error anywhere rolls the whole thing back. This is what lets a page commit
+// (federation/replicator.mjs) compose store writes and peer-cursor state into one atomic unit,
+// and what lets the crash probe emulate a process killed mid-commit.
 export function withTransaction(db, action) {
+  if (db.isTransaction) return action();
   db.exec("BEGIN IMMEDIATE");
   try {
     const result = action();

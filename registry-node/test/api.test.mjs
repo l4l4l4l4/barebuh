@@ -119,6 +119,8 @@ test("route inventory exposes bounded read routes plus the refused submission bo
     "GET /health/live",
     "GET /health/ready",
     "GET /v1/node",
+    "GET /v1/records",
+    "GET /v1/snapshot",
     "GET /v1/search",
     "GET /v1/stations/{station-key-digest}",
     "GET /v1/health/{station-key-digest}",

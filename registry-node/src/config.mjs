@@ -52,14 +52,24 @@ export function loadConfig(environment = process.env) {
   }
 
   const mode = environment.BAREBUH_MODE ?? "MVP_LOCAL_READ_ONLY";
-  if (mode !== "MVP_LOCAL_READ_ONLY") throw new Error("only MVP_LOCAL_READ_ONLY mode is implemented");
+  if (mode !== "MVP_LOCAL_READ_ONLY" && mode !== "PRIVATE_PINNED_FEDERATION") {
+    throw new Error("only MVP_LOCAL_READ_ONLY and PRIVATE_PINNED_FEDERATION modes are implemented");
+  }
 
   const writesEnabled = parseBoolean(environment.BAREBUH_WRITES_ENABLED, "BAREBUH_WRITES_ENABLED");
   const networkProbesEnabled = parseBoolean(environment.BAREBUH_NETWORK_PROBES_ENABLED, "BAREBUH_NETWORK_PROBES_ENABLED");
   const federationEnabled = parseBoolean(environment.BAREBUH_FEDERATION_ENABLED, "BAREBUH_FEDERATION_ENABLED");
   if (writesEnabled) throw new Error("writes are not implemented and cannot be enabled");
   if (networkProbesEnabled) throw new Error("network probes are not implemented and cannot be enabled");
-  if (federationEnabled) throw new Error("federation is not implemented and cannot be enabled");
+  // Federation is never promoted by a flag alone: the pull replicator, the records feed, and the
+  // snapshot view exist only as the pinned-federation mode, and that mode is inert without an
+  // explicit operator pin (docs/registry-node-security-contract.md, mode 3).
+  if (federationEnabled && mode !== "PRIVATE_PINNED_FEDERATION") {
+    throw new Error("federation requires the PRIVATE_PINNED_FEDERATION mode");
+  }
+  if (mode === "PRIVATE_PINNED_FEDERATION" && !federationEnabled) {
+    throw new Error("PRIVATE_PINNED_FEDERATION requires BAREBUH_FEDERATION_ENABLED=true");
+  }
 
   const host = environment.BAREBUH_HOST ?? "127.0.0.1";
   if (host !== "127.0.0.1" && host !== "::1" && host !== "localhost") throw new Error("MVP listener must use a loopback host");
@@ -81,7 +91,10 @@ export function loadConfig(environment = process.env) {
     writesEnabled,
     networkProbesEnabled,
     federationEnabled,
-    peerWorkers: 0,
+    // The pull replicator is one synchronous, strictly sequential worker: peers are a bulkhead and
+    // never run concurrently (`replicate` in cli.mjs). There are no background threads and no
+    // station checker in either mode.
+    peerWorkers: federationEnabled ? 1 : 0,
     stationCheckerWorkers: 0,
   });
 }
