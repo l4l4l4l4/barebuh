@@ -50,8 +50,8 @@ constexpr char kItemInterface[] = "org.freedesktop.Secret.Item";
 constexpr char kSessionInterface[] = "org.freedesktop.Secret.Session";
 
 // Same schema name and attributes as the libsecret backend.
-constexpr char kSchemaName[] = "org.strawberrymusicplayer.Password";
-constexpr char kApplication[] = "strawberry";
+constexpr char kSchemaName[] = "org.barebuh.Password";
+constexpr char kApplication[] = "barebuh";
 
 // A path of "/" means no object, for example no prompt is needed.
 bool IsNullPath(const QDBusObjectPath &path) {
@@ -247,7 +247,7 @@ void CredentialsBackendGnomeKeyring::DefaultCollection(const PathCallback &callb
 void CredentialsBackendGnomeKeyring::CreateItem(const QDBusObjectPath &collection, const QString &service, const QString &password, const ResultCallback &callback) {
 
   QVariantMap properties;
-  properties.insert(u"org.freedesktop.Secret.Item.Label"_s, QStringLiteral("Strawberry %1 password").arg(service));
+  properties.insert(u"org.freedesktop.Secret.Item.Label"_s, QStringLiteral("Barebuh %1 password").arg(service));
   properties.insert(u"org.freedesktop.Secret.Item.Attributes"_s, QVariant::fromValue(Attributes(service)));
 
   SecretServiceSecret secret;

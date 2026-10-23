@@ -42,7 +42,7 @@ AboutDialog::AboutDialog(QWidget *parent) : QDialog(parent), ui_{} {
 
   ui_.setupUi(this);
   setWindowFlags(windowFlags()|Qt::WindowStaysOnTopHint);
-  setWindowTitle(tr("About Strawberry"));
+  setWindowTitle(tr("About Barebuh"));
 
   strawberry_authors_ \
            << Person(u"Jonas Kvinge"_s);
@@ -162,26 +162,17 @@ QString AboutDialog::MainHtml() const {
   ret += "</p>"_L1;
 
   ret += "<p>"_L1;
-  ret += tr("Strawberry is a music player and music collection organizer.");
+  ret += tr("Barebuh is a music player, collection organizer, and federated internet-radio client.");
   ret += "<br />"_L1;
-  ret += tr("It is a fork of Clementine released in 2018 aimed at music collectors and audiophiles.");
+  ret += tr("Barebuh is an independent modified fork of Strawberry Music Player; Strawberry was forked from Clementine.");
   ret += "</p>"_L1;
 
   ret += "<p>"_L1;
-  ret += tr("Strawberry is free software released under GPL. The source code is available on %1").arg(QStringLiteral("<a style=\"color:%1;\" href=\"https://github.com/strawberrymusicplayer/strawberry\">GitHub</a>.").arg(palette().text().color().name()));
+  ret += tr("Barebuh is free software released under the GNU General Public License, version 3 or later.");
   ret += "<br />"_L1;
   ret += tr("You should have received a copy of the GNU General Public License along with this program.  If not, see %1").arg(QStringLiteral("<a style=\"color:%1;\" href=\"http://www.gnu.org/licenses/\">http://www.gnu.org/licenses/</a>").arg(palette().text().color().name()));
-  ret += "</p>"_L1;
-
-  ret += "<p>"_L1;
-  ret += tr("If you like Strawberry and can make use of it, consider sponsoring or donating.");
   ret += "<br />"_L1;
-  ret += tr("You can sponsor the author on %1 or %2. You can also make a one-time payment through %3.").arg(
-    QStringLiteral("<a style=\"color:%1;\" href=\"https://www.patreon.com/jonaskvinge\">Patreon</a>").arg(palette().text().color().name()),
-    QStringLiteral("<a style=\"color:%1;\" href=\"https://github.com/sponsors/jonaski\">GitHub</a>").arg(palette().text().color().name()),
-    QStringLiteral("<a style=\"color:%1;\" href=\"https://paypal.me/jonaskvinge\">paypal.me/jonaskvinge</a>").arg(palette().text().color().name())
-  );
-
+  ret += tr("This build is not endorsed by the Strawberry Music Player or Clementine projects.");
   ret += "</p>"_L1;
 
   return ret;
@@ -194,7 +185,7 @@ QString AboutDialog::ContributorsHtml() const {
 
   ret += "<p>"_L1;
   ret += "<b>"_L1;
-  ret += tr("Author and maintainer");
+  ret += tr("Strawberry author and maintainer");
   ret += "</b>"_L1;
   for (const Person &person : strawberry_authors_) {
     ret += "<br />"_L1 + PersonToHtml(person);
@@ -203,7 +194,7 @@ QString AboutDialog::ContributorsHtml() const {
 
   ret += "<p>"_L1;
   ret += "<b>"_L1;
-  ret += tr("Contributors");
+  ret += tr("Strawberry contributors");
   ret += "</b>"_L1;
   for (const Person &person : strawberry_contributors_) {
     ret += "<br />"_L1 + PersonToHtml(person);

@@ -35,8 +35,8 @@ using namespace Qt::Literals::StringLiterals;
 namespace {
 
 constexpr char kInterface[] = "org.kde.KWallet";
-constexpr char kAppId[] = "Strawberry";
-constexpr char kFolder[] = "Strawberry";
+constexpr char kAppId[] = "Barebuh";
+constexpr char kFolder[] = "Barebuh";
 
 // Opening the wallet can show a password prompt, so give the user plenty of time.
 constexpr int kOpenTimeout = 300000;

@@ -1,142 +1,83 @@
-# :strawberry: Strawberry Music Player [![Build Status](https://github.com/strawberrymusicplayer/strawberry/actions/workflows/build.yaml/badge.svg?branch=master)](https://github.com/strawberrymusicplayer/strawberry/actions)
-[![Sponsor](https://img.shields.io/badge/-Sponsor-green?logo=github)](https://github.com/sponsors/jonaski)
-[![Patreon](https://img.shields.io/badge/patreon-donate-green.svg)](https://patreon.com/jonaskvinge)
-[![PayPal](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://paypal.me/jonaskvinge)
+# Barebuh
 
-Strawberry is a **music player and music collection organizer**, originally forked from *Clementine* in 2018.
-It’s written in **C++ using the Qt framework**, designed for **audiophiles and music collectors**.
+Barebuh is a desktop music player and collection organizer with an open,
+federated internet-radio directory. The project is a modified fork of
+[Strawberry Music Player](https://www.strawberrymusicplayer.org/); Strawberry is
+itself derived from Clementine.
 
-![Screenshot of Strawberry Music Player](https://raw.githubusercontent.com/strawberrymusicplayer/strawberry/master/data/screenshot/screenshot.png)
+“Dingleberry” is retained only as a historical alias. Barebuh is the product,
+application, package, and release name.
 
----
+## Project status
 
-## :globe_with_meridians: Resources
+Barebuh is a local, unsigned development candidate. No public forge, owner,
+homepage, support address, security address, release host, or signing identity
+has been selected. Do not redistribute the generated candidates as official
+releases and do not direct Barebuh users to Strawberry support channels.
 
-- **Website:** https://www.strawberrymusicplayer.org
-- **Wiki:** https://wiki.strawberrymusicplayer.org
-- **Forum:** https://forum.strawberrymusicplayer.org
-- **GitHub:** https://github.com/strawberrymusicplayer/strawberry
-- **Latest builds:** https://builds.strawberrymusicplayer.org
-- **openSUSE Build Service:**
-  - Stable: https://build.opensuse.org/package/show/home:jonaski:strawberry/strawberry
-  - Unstable: https://build.opensuse.org/package/show/home:jonaski:strawberry-dev/strawberry
-- **Ubuntu PPAs:**
-  - Stable: https://launchpad.net/~jonaski/+archive/ubuntu/strawberry
-  - Unstable: https://launchpad.net/~jonaski/+archive/ubuntu/strawberry-unstable
-- **Translations:** https://crowdin.com/project/strawberrymusicplayer
+The current client adds:
 
----
+- signed `oradio/1` federation schemas and cross-language conformance fixtures;
+- a feature-gated Barebuh radio service with bounded parsing;
+- transactional last-known-good caching and offline startup behavior;
+- visible station provenance, health, and stale-data state.
 
-## :warning: Opening an Issue
+The protocol identifier and `barebuh.example` schema origin are provisional.
+See [`protocol/v1/README.md`](protocol/v1/README.md).
 
-Before creating a new GitHub issue:
+## Build
 
-1. **Read the [FAQ](https://wiki.strawberrymusicplayer.org/wiki/FAQ)**.
-2. **Search existing issues** to avoid duplicates. If one already exists, comment there with any additional information.
-3. **Use the [forum](https://forum.strawberrymusicplayer.org/)** for technical problems, discussions or feature suggestions — it’s better suited for back-and-forth conversation.
-4. **Feature requests are not accepted on GitHub.** Issues created for feature requests will be closed. You can still discuss ideas on the forum.
-5. **Flatpak users:** We do **not** maintain the Flatpak package. Report Flatpak-specific issues via [Flatpak support](https://flatpak.org/about/).
+Barebuh requires CMake 3.13+, a C++17 compiler, Qt 6.4+, GStreamer, TagLib,
+SQLite, GLib, OpenSSL, ICU, Boost, and KDSingleApplication. Optional Strawberry
+integrations retain their upstream dependency requirements.
 
----
+```sh
+cmake -S . -B build -DBUILD_WERROR=ON -DENABLE_BAREBUH=ON
+cmake --build build --parallel
+cmake --build build --target build_tests
+ctest --test-dir build/tests --output-on-failure
+```
 
-## :moneybag: Sponsoring
+A feature-disabled compatibility build is a release gate:
 
-Strawberry is **free software released under the GPL**.
-If you enjoy using it, please consider **supporting development** through sponsorship or donation.
+```sh
+cmake -S . -B build-no-barebuh -DBUILD_WERROR=ON -DENABLE_BAREBUH=OFF
+cmake --build build-no-barebuh --parallel
+```
 
-**Sponsorship options:**
-1. [Patreon](https://www.patreon.com/jonaskvinge)
-2. [GitHub](https://github.com/sponsors/jonaski)
-3. [Ko-fi](https://ko-fi.com/jonaskvinge)
-4. [PayPal](https://paypal.me/jonaskvinge)
+## Local release bundle
 
-Supporting open-source developers helps ensure continued maintenance and improvements.
+The release workflow is local, deterministic, unsigned, and non-publishing:
 
----
+```sh
+make release-check
+make release
+```
 
-## :white_check_mark: Features
+It writes a normalized source archive, SPDX 2.3 JSON SBOM, build metadata, and
+`SHA256SUMS` under `build/release/`. `make publish` deliberately fails closed.
+See [`docs/release.md`](docs/release.md).
 
-- Play and organize your music collection
-- Support for WAV, FLAC, Ogg FLAC, WavPack, Ogg Vorbis, Opus, Ogg Speex, MPC, TrueAudio, AIFF, MP4/AAC, ALAC, MP3, ASF, Monkey’s Audio, and DSD (DSF/DSDIFF)
-- Bit-perfect playback on Linux
-- MPRIS2 / D-Bus remote control on Linux
-- Native desktop notifications
-- Advanced playlist management
-- Smart and dynamic playlists
-- Audio analyzer, equalizer, moodbar, and waveform seek bar
-- Volume normalization with ReplayGain and EBU R128 loudness analysis
-- Editing tags, and fetching missing tags via acoustic fingerprinting using [AcoustID](https://acoustid.org/) and [MusicBrainz](https://musicbrainz.org/)
-- Album cover art from: [Last.fm](https://www.last.fm/), [MusicBrainz](https://musicbrainz.org/), [Discogs](https://www.discogs.com/), [Musixmatch](https://www.musixmatch.com/), [Deezer](https://www.deezer.com/), [Tidal](https://www.tidal.com/), [Qobuz](https://www.qobuz.com/), [Spotify](https://www.spotify.com/)
-- Lyrics from: [Genius](https://genius.com/), [Musixmatch](https://www.musixmatch.com/), [lyrics.ovh](https://lyrics.ovh/), [songlyrics](https://www.songlyrics.com/), [azlyrics](https://www.azlyrics.com/), [elyrics](https://www.elyrics.net/), [letras](https://www.letras.mus.br) and [lrclib.net](https://lrclib.net/)
-- Audio format conversion (transcoding) to MP3, AAC, FLAC, Ogg Vorbis, Opus, Speex, WavPack, and ASF
-- Music transfer to USB, MTP and iPod devices
-- Scrobbling to [Last.fm](https://www.last.fm/), [ListenBrainz](https://listenbrainz.org/), and Subsonic
-- Global keyboard shortcuts (Linux, macOS, and Windows)
-- Discord Rich Presence
-- Audio CD playback
-- Internet radio from [Radio Paradise](https://radioparadise.com/), [SomaFM](https://somafm.com/), [Radio Browser](https://www.radio-browser.info/), and custom streams
-- Streaming from Subsonic-compatible servers
-- Unofficial Tidal, Spotify, and Qobuz integration
+## Documentation
 
----
+- [Architecture](docs/architecture.md)
+- [Threat model](docs/threat-model.md)
+- [Protocol MVP](docs/protocol-mvp.md)
+- [Implementation plan](docs/implementation-plan.md)
+- [Release policy](docs/release.md)
+- [Kanban workstreams](docs/workstreams.md)
+- [Security policy](SECURITY.md)
+- [Contributing](CONTRIBUTING.md)
 
-:white_check_mark: Tested on **Linux**, **OpenBSD**, **FreeBSD**, **macOS**, and **Windows**.
+## License and attribution
 
-> **Note:** macOS and Windows releases are currently **available to sponsors only**.
-> A monthly sponsorship via [Patreon](https://www.patreon.com/jonaskvinge) grants direct access to new releases.
+Barebuh is free software under the GNU General Public License, version 3 or
+later. Retained files continue to carry their original Strawberry, Clementine,
+and other author and license notices. The repository also contains components
+under compatible licenses documented in [`debian/copyright`](debian/copyright).
+See [`COPYING`](COPYING) for the GPL text and [`CONTRIBUTORS.md`](CONTRIBUTORS.md)
+for attribution policy.
 
----
-
-## :gear: Requirements
-
-To build Strawberry from source, you’ll need:
-
-**Dependencies:**
-- [CMake 3.13 or higher](https://cmake.org/)
-- C/C++ compiler ([GCC](https://gcc.gnu.org/), [Clang](https://clang.llvm.org/), or [MSVC](https://visualstudio.microsoft.com/vs/features/cplusplus/))
-- [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/) or [pkgconf](https://github.com/pkgconf/pkgconf)
-- [Boost](https://www.boost.org/)
-- [GLib](https://developer.gnome.org/glib/)
-- [OpenSSL](https://www.openssl.org/)
-- [Qt 6.4 or higher](https://www.qt.io/) (Core, Concurrent, Gui, Widgets, Network, SQL, D-Bus)
-- [SQLite 3.9 or higher](https://www.sqlite.org)
-- [ALSA (Linux only)](https://www.alsa-project.org/)
-- [GStreamer](https://gstreamer.freedesktop.org/)
-- [TagLib 1.12 or higher](https://www.taglib.org/)
-- [ICU](https://unicode-org.github.io/icu/)
-- [KDSingleApplication 1.1.0 or higher](https://github.com/KDAB/KDSingleApplication)
-
-**Dependencies for optional features:**
-- Fingerprinting & tagging: [Chromaprint](https://acoustid.org/chromaprint)
-- Fast Spectrum Moodbar: [FFTW3](http://www.fftw.org/)
-- PulseAudio integration: [PulseAudio](https://www.freedesktop.org/wiki/Software/PulseAudio/)
-- Audio CD support: [libcdio](https://www.gnu.org/software/libcdio/)
-- MTP devices: [libmtp](http://libmtp.sourceforge.net/)
-- iPod Classic: [libgpod](http://www.gtkpod.org/libgpod/)
-- EBU R128 normalization: [libebur128](https://github.com/jiixyj/libebur128)
-- Secure password storage using libsecret on Linux/BSD: [libsecret](https://gnome.pages.gitlab.gnome.org/libsecret/)
-
-Also install GStreamer plugins **base**, **good**, and optionally **bad**, **ugly** and **libav** for full codec support.
-
----
-
-## :wrench: Build from Source
-
-**Get the code:**
-
-    git clone --recursive https://github.com/strawberrymusicplayer/strawberry
-
-**Build and install:**
-
-    cd strawberry
-    cmake -S . -B build
-    cmake --build build --parallel $(nproc)
-    sudo cmake --install build
-
-For building on Windows with Visual Studio 2022/2026, see: :point_right: https://github.com/strawberrymusicplayer/strawberry-msvc-build-tools
-
----
-
-## :package: Packaging status
-
-[![Packaging status](https://repology.org/badge/vertical-allrepos/strawberry.svg?columns=3&header=Strawberry&exclude_unsupported=1)](https://repology.org/metapackage/strawberry/versions)
+Barebuh is an independent modified version. It is not endorsed by the
+Strawberry Music Player or Clementine projects. Upstream history remains in the
+legacy [`Changelog`](Changelog); fork changes begin in [`CHANGELOG.md`](CHANGELOG.md).

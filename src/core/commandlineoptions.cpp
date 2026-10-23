@@ -58,7 +58,7 @@ using namespace Qt::Literals::StringLiterals;
 namespace {
 
 constexpr char kHelpText[] =
-    "%1: strawberry [%2] [%3]\n"
+    "%1: barebuh [%2] [%3]\n"
     "\n"
     "%4:\n"
     "  -p, --play                 %5\n"
@@ -95,7 +95,7 @@ constexpr char kHelpText[] =
     "      --version              %34\n"
     "      --create-fingerprint <filename>  %35\n";
 
-constexpr char kVersionText[] = "Strawberry %1";
+constexpr char kVersionText[] = "Barebuh %1";
 
 }  // namespace
 

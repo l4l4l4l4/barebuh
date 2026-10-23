@@ -135,7 +135,7 @@
         <item>
          <widget class="QLabel" name="label_error_text">
           <property name="text">
-           <string>Strawberry was unable to find results for this file</string>
+           <string>Barebuh was unable to find results for this file</string>
           </property>
           <property name="textFormat">
            <enum>Qt::PlainText</enum>

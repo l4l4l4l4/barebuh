@@ -1,44 +1,35 @@
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=Strawberry
-GenericName=Strawberry Music Player
-GenericName[fr]=Lecteur de musique Strawberry
-GenericName[ru]=Музыкальный проигрыватель Strawberry
-Comment=Plays music
-Comment[fr]=Joue de la musique
-Comment[ru]=Прослушивание музыки
-Exec=strawberry %U
-TryExec=strawberry
-Icon=strawberry
+Name=Barebuh
+GenericName=Music Player
+Comment=Play and organize music with federated internet radio
+Exec=barebuh %U
+TryExec=barebuh
+Icon=barebuh
 Terminal=false
 Categories=AudioVideo;Player;Qt;Audio;
-Keywords=Audio;Player;Clementine;
+Keywords=Audio;Player;Radio;Federation;Strawberry;Clementine;
 MimeType=x-content/audio-player;application/ogg;application/x-ogg;application/x-ogm-audio;audio/flac;audio/ogg;audio/vorbis;audio/aac;audio/mp4;audio/mpeg;audio/mpegurl;audio/vnd.rn-realaudio;audio/x-flac;audio/x-oggflac;audio/x-vorbis;audio/x-vorbis+ogg;audio/x-speex;audio/x-wav;audio/x-wavpack;audio/x-ape;audio/x-mp3;audio/x-mpeg;audio/x-mpegurl;audio/x-ms-wma;audio/x-musepack;audio/x-pn-realaudio;audio/x-scpls;video/x-ms-asf;x-scheme-handler/tidal;
-StartupWMClass=strawberry
+StartupWMClass=barebuh
 Actions=Play-Pause;Stop;StopAfterCurrent;Previous;Next;
 
 [Desktop Action Play-Pause]
 Name=Play/Pause
-Exec=strawberry --play-pause
-Name[ru]=Играть/пауза
+Exec=barebuh --play-pause
 
 [Desktop Action Stop]
 Name=Stop
-Exec=strawberry --stop
-Name[ru]=Стоп
+Exec=barebuh --stop
 
 [Desktop Action StopAfterCurrent]
 Name=Stop after this track
-Exec=strawberry --stop-after-current
-Name[ru]=Стоп после этого трека
+Exec=barebuh --stop-after-current
 
 [Desktop Action Previous]
 Name=Previous
-Exec=strawberry --previous
-Name[ru]=Предыдущий
+Exec=barebuh --previous
 
 [Desktop Action Next]
 Name=Next
-Exec=strawberry --next
-Name[ru]=Следующий
+Exec=barebuh --next

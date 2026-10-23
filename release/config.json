@@ -1,0 +1,34 @@
+{
+  "product": {
+    "name": "Barebuh",
+    "alias": "Dingleberry",
+    "executable": "barebuh",
+    "package": "barebuh",
+    "application_id": "org.barebuh.Barebuh",
+    "settings_organization": "Barebuh",
+    "settings_application": "Barebuh"
+  },
+  "upstream": {
+    "name": "Strawberry Music Player",
+    "repository": "https://github.com/strawberrymusicplayer/strawberry",
+    "base_commit": "4aa767fed7dd968192e24ef3e7f54d9b46badd52",
+    "version": "1.2.30",
+    "license": "GPL-3.0-or-later"
+  },
+  "release": {
+    "formats": [
+      "source-tar.xz",
+      "spdx-json",
+      "sha256"
+    ],
+    "signed": false,
+    "publishable": false
+  },
+  "publication": {
+    "forge": null,
+    "owner": null,
+    "repository": null,
+    "release_endpoint": null,
+    "signing_identity": null
+  }
+}

@@ -352,7 +352,7 @@ QVariant DeviceManager::data(const QModelIndex &idx, int role) const {
       if (!device_info->device_) {
         if (device_info->database_id_ == -1 && !device_info->BestBackend()->lister_->DeviceNeedsMount(device_info->BestBackend()->unique_id_)) {
           if (device_info->BestBackend()->lister_->AskForScan(device_info->BestBackend()->unique_id_)) {
-            ScopedPtr<QMessageBox> dialog(new QMessageBox(QMessageBox::Information, tr("Connect device"), tr("This is the first time you have connected this device.  Strawberry will now scan the device to find music files - this may take some time."), QMessageBox::Cancel));
+            ScopedPtr<QMessageBox> dialog(new QMessageBox(QMessageBox::Information, tr("Connect device"), tr("This is the first time you have connected this device.  Barebuh will now scan the device to find music files - this may take some time."), QMessageBox::Cancel));
             QPushButton *pushbutton = dialog->addButton(tr("Connect device"), QMessageBox::AcceptRole);
             dialog->exec();
             if (dialog->clickedButton() != pushbutton) return QVariant();
@@ -614,7 +614,7 @@ SharedPtr<ConnectedDevice> DeviceManager::Connect(DeviceInfo *device_info) {
     // If it was "ipod" or "mtp" then the user compiled out support and the device won't work properly.
     if (url.scheme() == "mtp"_L1 || url.scheme() == "gphoto2"_L1) {
       if (QMessageBox::critical(nullptr, tr("This device will not work properly"),
-          tr("This is an MTP device, but you compiled Strawberry without libmtp support.") + u"  "_s +
+          tr("This is an MTP device, but you compiled Barebuh without libmtp support.") + u"  "_s +
           tr("If you continue, this device will work slowly and songs copied to it may not work."),
               QMessageBox::Abort, QMessageBox::Ignore) == QMessageBox::Abort)
         return SharedPtr<ConnectedDevice>();
@@ -622,7 +622,7 @@ SharedPtr<ConnectedDevice> DeviceManager::Connect(DeviceInfo *device_info) {
 
     if (url.scheme() == "ipod"_L1) {
       if (QMessageBox::critical(nullptr, tr("This device will not work properly"),
-          tr("This is an iPod, but you compiled Strawberry without libgpod support.") + "  "_L1 +
+          tr("This is an iPod, but you compiled Barebuh without libgpod support.") + "  "_L1 +
           tr("If you continue, this device will work slowly and songs copied to it may not work."),
               QMessageBox::Abort, QMessageBox::Ignore) == QMessageBox::Abort)
         return SharedPtr<ConnectedDevice>();

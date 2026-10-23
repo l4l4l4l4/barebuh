@@ -23,9 +23,9 @@
         <file>style/strawberry.css</file>
         <file>style/smartplaylistsearchterm.css</file>
         <file>html/oauthsuccess.html</file>
-        <file>pictures/strawberry.png</file>
-        <file>pictures/strawberry-grey.png</file>
-        <file>pictures/strawberry-faded.png</file>
+        <file alias="pictures/strawberry.png">pictures/barebuh.png</file>
+        <file alias="pictures/strawberry-grey.png">pictures/barebuh-grey.png</file>
+        <file alias="pictures/strawberry-faded.png">pictures/barebuh-faded.png</file>
         <file>pictures/strawbs.png</file>
         <file>pictures/nomusic.png</file>
         <file>pictures/cdcase.png</file>

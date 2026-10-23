@@ -35,9 +35,8 @@
 using namespace Qt::StringLiterals;
 
 namespace {
-constexpr char kDiscordApplicationId[] = "1352351827206733974";
-constexpr char kStrawberryIconResourceName[] = "embedded_cover";
-constexpr char kStrawberryIconDescription[] = "Strawberry Music Player";
+constexpr char kBarebuhIconResourceName[] = "embedded_cover";
+constexpr char kBarebuhIconDescription[] = "Barebuh Music Player";
 }  // namespace
 
 DiscordRichPresence::DiscordRichPresence(const SharedPtr<Player> player, const SharedPtr<PlaylistManager> playlist_manager, QObject *parent)
@@ -74,7 +73,7 @@ void DiscordRichPresence::ReloadSettings() {
   s.endGroup();
 
   if (enabled && !discord_rpc_) {
-    discord_rpc_ = new DiscordRPC(QString::fromLatin1(kDiscordApplicationId), this);
+    discord_rpc_ = new DiscordRPC(QStringLiteral(DISCORD_APPLICATION_ID), this);
     discord_rpc_->Initialize();
   }
   else if (!enabled && discord_rpc_) {
@@ -124,9 +123,9 @@ void DiscordRichPresence::SendPresenceUpdate() {
   presence.type = 2;
   presence.status_display_type = status_display_type_;
 
-  presence.large_image_key = QString::fromLatin1(kStrawberryIconResourceName);
-  presence.small_image_key = QString::fromLatin1(kStrawberryIconResourceName);
-  presence.small_image_text = QString::fromLatin1(kStrawberryIconDescription);
+  presence.large_image_key = QString::fromLatin1(kBarebuhIconResourceName);
+  presence.small_image_key = QString::fromLatin1(kBarebuhIconResourceName);
+  presence.small_image_text = QString::fromLatin1(kBarebuhIconDescription);
   presence.instance = false;
 
   if (!activity_.artist.isEmpty()) {

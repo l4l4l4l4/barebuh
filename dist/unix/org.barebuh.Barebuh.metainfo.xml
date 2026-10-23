@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.barebuh.Barebuh</id>
+  <launchable type="desktop-id">org.barebuh.Barebuh.desktop</launchable>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <provides>
+    <binary>barebuh</binary>
+  </provides>
+  <name>Barebuh Music Player</name>
+  <summary>Music player and collection organizer with federated internet radio</summary>
+  <description>
+    <p>
+      Barebuh plays and organizes local music and discovers internet-radio stations through an open, signed federation protocol.
+    </p>
+    <p>
+      Barebuh is an independent modified fork of Strawberry Music Player, which was derived from Clementine. It retains upstream attribution and is distributed under the GNU General Public License, version 3 or later.
+    </p>
+    <p>
+      This development metadata intentionally contains no homepage, bug tracker, donation, screenshot, update, or release URL until Barebuh-owned endpoints are approved.
+    </p>
+  </description>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="0.1.0-dev1" date="2026-09-27" type="development">
+      <description>
+        <p>Unsigned local development candidate based on Strawberry 1.2.30.</p>
+      </description>
+    </release>
+  </releases>
+</component>

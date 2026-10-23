@@ -32,7 +32,7 @@
         <item>
          <widget class="QComboBox" name="combobox_style">
           <property name="toolTip">
-           <string>You might need to restart Strawberry for this setting to fully apply</string>
+           <string>You might need to restart Barebuh for this setting to fully apply</string>
           </property>
          </widget>
         </item>
@@ -46,7 +46,7 @@
         <item>
          <widget class="QCheckBox" name="checkbox_system_icons">
           <property name="toolTip">
-           <string>You need to restart Strawberry for this setting to take affect</string>
+           <string>You need to restart Barebuh for this setting to take effect</string>
           </property>
           <property name="text">
            <string>System icons</string>

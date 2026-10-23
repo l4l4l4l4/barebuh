@@ -29,8 +29,8 @@ using namespace Qt::Literals::StringLiterals;
 
 namespace {
 
-constexpr char kTargetNamePrefix[] = "Strawberry/";
-constexpr wchar_t kUserName[] = L"strawberry";
+constexpr char kTargetNamePrefix[] = "Barebuh/";
+constexpr wchar_t kUserName[] = L"barebuh";
 
 QString TargetName(const QString &service) {
   return QLatin1String(kTargetNamePrefix) + service;

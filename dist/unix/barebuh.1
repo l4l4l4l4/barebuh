@@ -1,0 +1,50 @@
+.TH BAREBUH 1 "September 2026" "Barebuh 0.1.0-dev1" "User Commands"
+.SH NAME
+barebuh \- music player and federated internet-radio client
+.SH SYNOPSIS
+.B barebuh
+.RI [ options ]
+.RI [ URLs ]
+.SH DESCRIPTION
+Barebuh is a music player and collection organizer with an open federated
+internet-radio directory. It is an independent modified fork of Strawberry
+Music Player, which was derived from Clementine.
+.SH OPTIONS
+.TP
+.BR \-p , " --play"
+Start playback.
+.TP
+.BR \-t , " --play-pause"
+Toggle playback.
+.TP
+.BR \-u , " --pause"
+Pause playback.
+.TP
+.BR \-s , " --stop"
+Stop playback.
+.TP
+.BR \-r , " --previous"
+Play the previous track.
+.TP
+.BR \-f , " --next"
+Play the next track.
+.TP
+.BR \-v , " --volume " value
+Set volume.
+.TP
+.BR \-g , " --language " code
+Set the interface language.
+.TP
+.BR \--version
+Print version information.
+.TP
+.BR \-h , " --help"
+Print full command-line help.
+.SH FILES
+Barebuh uses its own settings and local-data namespace and does not silently
+share Strawberry's profile.
+.SH LICENSE
+GNU General Public License, version 3 or later. See the accompanying COPYING
+file and retained source-file notices.
+.SH SEE ALSO
+The source distribution's README.md, SECURITY.md, and docs/release.md files.

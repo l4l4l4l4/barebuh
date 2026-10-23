@@ -187,7 +187,7 @@ void TrackSelectionDialog::UpdateStack() {
     ui_->stacked_widget->setCurrentWidget(ui_->error_page);
     if (tag_data.error_string_.isEmpty()) {
       ui_->label_error_title->setText(tr("No results"));
-      ui_->label_error_text->setText(tr("Strawberry was unable to find results for this file"));
+      ui_->label_error_text->setText(tr("Barebuh was unable to find results for this file"));
     }
     else {
       ui_->label_error_title->setText(tr("Error"));

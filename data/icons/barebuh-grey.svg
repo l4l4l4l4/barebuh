@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2026 Barebuh contributors; SPDX-License-Identifier: GPL-3.0-or-later -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Barebuh inactive</title>
+  <rect x="36" y="36" width="440" height="440" rx="112" fill="#4b5563"/>
+  <path d="M171 132v248" fill="none" stroke="#f3f4f6" stroke-width="36" stroke-linecap="round"/>
+  <path d="M178 145h82c63 0 101 27 101 72 0 30-18 52-51 63 45 10 69 37 69 77 0 51-41 82-111 82h-90" fill="none" stroke="#f3f4f6" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M236 222h74M236 292h92M236 362h54" fill="none" stroke="#9ca3af" stroke-width="18" stroke-linecap="round"/>
+  <circle cx="418" cy="132" r="18" fill="#d1d5db"/>
+</svg>

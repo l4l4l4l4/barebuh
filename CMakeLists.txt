@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.13)
 
-project(strawberry C CXX)
+project(barebuh C CXX)
 
 if(APPLE)
   enable_language(OBJC OBJCXX)
@@ -18,8 +18,10 @@ include(CheckCXXSourceRuns)
 include(CheckIncludeFiles)
 include(FindPkgConfig)
 include(cmake/Version.cmake)
+include(cmake/Barebuh.cmake)
 include(cmake/OptionalComponent.cmake)
 include(cmake/ApiCredentials.cmake)
+include(cmake/BarebuhExternalIntegrations.cmake)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   set(LINUX ON)
@@ -370,7 +372,7 @@ optional_component(TRANSLATIONS ON "Translations"
 
 optional_component(SUBSONIC ON "Streaming: Subsonic")
 optional_component(TIDAL ON "Streaming: Tidal")
-optional_component(SPOTIFY ON "Streaming: Spotify")
+optional_component(SPOTIFY OFF "Streaming: Spotify (disabled until a Barebuh OAuth registration is approved)")
 optional_component(QOBUZ ON "Streaming: Qobuz")
 optional_component(PLEX ON "Streaming: Plex")
 optional_component(JELLYFIN ON "Streaming: Jellyfin")
@@ -390,15 +392,19 @@ optional_component(EBUR128 ON "EBU R 128 loudness normalization"
 )
 
 if(APPLE)
-  optional_component(SPARKLE ON "Sparkle integration"
+  optional_component(SPARKLE OFF "Sparkle integration (disabled until a Barebuh feed is approved)"
     DEPENDS "Sparkle" SPARKLE
   )
 endif()
 
 if(APPLE OR WIN32)
-  optional_component(QTSPARKLE ON "QtSparkle integration"
+  optional_component(QTSPARKLE OFF "QtSparkle integration (disabled until a Barebuh feed is approved)"
     DEPENDS "QtSparkle" QTSPARKLE_FOUND
   )
+endif()
+
+if(HAVE_SPARKLE OR HAVE_QTSPARKLE)
+  message(FATAL_ERROR "Barebuh update feeds are unresolved; Sparkle integrations must remain disabled")
 endif()
 
 optional_component(QPA_QPLATFORMNATIVEINTERFACE ON "QPA Platform Native Interface"
@@ -409,7 +415,7 @@ optional_component(STREAMTAGREADER ON "Stream tagreader"
   DEPENDS "sparsehash" LIBSPARSEHASH_FOUND
 )
 
-optional_component(DISCORD_RPC ON "Discord Rich Presence")
+optional_component(DISCORD_RPC OFF "Discord Rich Presence (disabled until a Barebuh application ID is approved)")
 
 if(HAVE_X11_GLOBALSHORTCUTS OR HAVE_KGLOBALACCEL_GLOBALSHORTCUTS OR APPLE OR WIN32)
   set(HAVE_GLOBALSHORTCUTS ON)
@@ -438,6 +444,7 @@ if(NOT CMAKE_CROSSCOMPILING)
 endif()
 
 add_executable(strawberry)
+set_target_properties(strawberry PROPERTIES OUTPUT_NAME "${BAREBUH_EXECUTABLE_NAME}")
 
 if(APPLE)
   set_target_properties(strawberry PROPERTIES MACOSX_BUNDLE TRUE)
@@ -1799,7 +1806,7 @@ if(NOT APPLE)
 endif()
 
 if(HAVE_TRANSLATIONS AND INSTALL_TRANSLATIONS AND INSTALL_TRANSLATIONS_FILES)
-  install(FILES ${INSTALL_TRANSLATIONS_FILES} DESTINATION share/strawberry/translations)
+  install(FILES ${INSTALL_TRANSLATIONS_FILES} DESTINATION share/barebuh/translations)
 endif()
 
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake_uninstall.cmake.in" "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake" IMMEDIATE @ONLY)

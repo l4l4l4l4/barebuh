@@ -33,7 +33,7 @@ namespace Utilities {
 
 const QByteArray &UserAgent() {
 
-  static const QByteArray user_agent = "%1/%2 (%3 %4; +https://www.strawberrymusicplayer.org)"_L1.arg(QCoreApplication::applicationName(), QCoreApplication::applicationVersion(), Utilities::OSName(), QSysInfo::currentCpuArchitecture()).toUtf8();
+  static const QByteArray user_agent = "%1/%2 (%3 %4; modified Strawberry fork)"_L1.arg(QCoreApplication::applicationName(), QCoreApplication::applicationVersion(), Utilities::OSName(), QSysInfo::currentCpuArchitecture()).toUtf8();
 
   return user_agent;
 

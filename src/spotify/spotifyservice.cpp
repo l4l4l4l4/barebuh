@@ -53,7 +53,6 @@ namespace {
 
 constexpr char kOAuthAuthorizeUrl[] = "https://accounts.spotify.com/authorize";
 constexpr char kOAuthAccessTokenUrl[] = "https://accounts.spotify.com/api/token";
-constexpr char kOAuthRedirectUrl[] = "https://oauth.strawberrymusicplayer.org/";
 constexpr char kOAuthScope[] = "user-follow-read user-follow-modify user-library-read user-library-modify streaming";
 constexpr char kArtistsSongsTable[] = "spotify_artists_songs";
 constexpr char kAlbumsSongsTable[] = "spotify_albums_songs";
@@ -120,7 +119,7 @@ SpotifyService::SpotifyService(const SharedPtr<TaskManager> task_manager,
   oauth_->set_settings_group(QLatin1String(SpotifySettings::kSettingsGroup));
   oauth_->set_type(OAuthenticator::Type::Authorization_Code);
   oauth_->set_authorize_url(QUrl(QLatin1String(kOAuthAuthorizeUrl)));
-  oauth_->set_redirect_url(QUrl(QLatin1String(kOAuthRedirectUrl)));
+  oauth_->set_redirect_url(QUrl(QStringLiteral(SPOTIFY_OAUTH_REDIRECT_URL)));
   oauth_->set_access_token_url(QUrl(QLatin1String(kOAuthAccessTokenUrl)));
   oauth_->set_scope(QLatin1String(kOAuthScope));
   oauth_->set_use_local_redirect_server(true);

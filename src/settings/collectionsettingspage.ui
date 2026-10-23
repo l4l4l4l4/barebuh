@@ -84,7 +84,7 @@
       <item>
        <widget class="QCheckBox" name="startup_scan">
         <property name="text">
-         <string>Update the collection when Strawberry starts</string>
+         <string>Update the collection when Barebuh starts</string>
         </property>
        </widget>
       </item>

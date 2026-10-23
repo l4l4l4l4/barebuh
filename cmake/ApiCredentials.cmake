@@ -7,8 +7,11 @@ set(OPENTIDAL_CLIENT_ID "" CACHE STRING "OpenTidal OAuth client ID")
 set(OPENTIDAL_CLIENT_SECRET "" CACHE STRING "OpenTidal OAuth client secret")
 set(SPOTIFY_CLIENT_ID "" CACHE STRING "Spotify OAuth client ID")
 set(SPOTIFY_CLIENT_SECRET "" CACHE STRING "Spotify OAuth client secret")
+set(SPOTIFY_OAUTH_REDIRECT_URL "" CACHE STRING "Spotify OAuth redirect URL registered for this client")
 set(GENIUS_CLIENT_ID "" CACHE STRING "Genius OAuth client ID")
 set(GENIUS_CLIENT_SECRET "" CACHE STRING "Genius OAuth client secret")
+set(GENIUS_OAUTH_REDIRECT_URL "http://localhost" CACHE STRING "Genius OAuth loopback redirect URL registered for custom credentials")
+set(DISCORD_APPLICATION_ID "" CACHE STRING "Approved Barebuh Discord application ID")
 set(MUSIXMATCH_APP_ID "" CACHE STRING "Musixmatch Android app_id")
 set(MUSIXMATCH_APP_SECRET "" CACHE STRING "Musixmatch Android HMAC-SHA1 signature secret")
 set(DISCOGS_CLIENT_ID "" CACHE STRING "Discogs consumer key")
@@ -25,8 +28,11 @@ mark_as_advanced(
   OPENTIDAL_CLIENT_SECRET
   SPOTIFY_CLIENT_ID
   SPOTIFY_CLIENT_SECRET
+  SPOTIFY_OAUTH_REDIRECT_URL
   GENIUS_CLIENT_ID
   GENIUS_CLIENT_SECRET
+  GENIUS_OAUTH_REDIRECT_URL
+  DISCORD_APPLICATION_ID
   MUSIXMATCH_APP_ID
   MUSIXMATCH_APP_SECRET
   DISCOGS_CLIENT_ID
