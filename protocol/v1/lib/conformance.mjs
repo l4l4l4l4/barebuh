@@ -57,6 +57,14 @@ export const BOUNDED_JSON_LIMITS = Object.freeze({
   max_string_bytes: 4096,
 });
 
+// Station tags are pinned to the desktop client's parser bounds
+// (src/radios/barebuhsearchparser.cpp: at most 32 tags, each at most 64 UTF-8 bytes). The client
+// refuses the whole page when a single tag breaks a bound, so a node must never admit a tag it
+// cannot serve, and the bound counts bytes, not characters (which a JSON Schema maxLength can only
+// approximate).
+export const STATION_TAG_MAX_ITEMS = 32;
+export const STATION_TAG_MAX_BYTES = 64;
+
 export function parseJsonStrict(input, limits = BOUNDED_JSON_LIMITS) {
   const bytes = Buffer.isBuffer(input) ? input : Buffer.from(input, "utf8");
   if (bytes.length > limits.max_document_bytes) throw new SyntaxError("JSON document exceeds byte limit");
@@ -188,9 +196,9 @@ function requireString(value, field, maximum = 4096) {
   return value;
 }
 
-function requireStringArray(value, field, maximumItems = 32) {
+function requireStringArray(value, field, maximumItems = 32, maximumItemBytes = 256) {
   if (!Array.isArray(value) || value.length === 0 || value.length > maximumItems) throw new TypeError(`${field} must be a non-empty bounded array`);
-  const strings = value.map((item, index) => requireString(item, `${field}[${index}]`, 256));
+  const strings = value.map((item, index) => requireString(item, `${field}[${index}]`, maximumItemBytes));
   if (new Set(strings).size !== strings.length) throw new TypeError(`${field} must not contain duplicates`);
   return strings;
 }
@@ -258,7 +266,7 @@ function validateStationPayload(payload) {
       if (!/^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/u.test(language)) throw new TypeError("station language must be a BCP 47 tag");
     }
   }
-  if (station.tags !== undefined) requireStringArray(station.tags, "station.tags", 32);
+  if (station.tags !== undefined) requireStringArray(station.tags, "station.tags", STATION_TAG_MAX_ITEMS, STATION_TAG_MAX_BYTES);
 }
 
 function validateNodePayload(payload) {

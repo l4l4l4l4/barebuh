@@ -1,0 +1,12 @@
+{
+  "name": "@barebuh/registry-node",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.15 <25"
+  },
+  "scripts": {
+    "test": "node --test"
+  }
+}

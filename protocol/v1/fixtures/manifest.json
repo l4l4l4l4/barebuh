@@ -75,6 +75,13 @@
       "message_contains": "must not contain userinfo"
     },
     {
+      "name": "station-tag-too-long-invalid",
+      "file": "invalid/station-tag-too-long.json",
+      "valid": false,
+      "stage": "validation",
+      "message_contains": "station.tags[0] must be a non-empty bounded string"
+    },
+    {
       "name": "node-insecure-api-invalid",
       "file": "invalid/node-insecure-api.json",
       "valid": false,

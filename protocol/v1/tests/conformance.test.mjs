@@ -9,7 +9,7 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { BOUNDED_JSON_LIMITS, canonicalize, parseJsonStrict, validateEnvelope } from "../lib/conformance.mjs";
+import { BOUNDED_JSON_LIMITS, canonicalize, parseJsonStrict, STATION_TAG_MAX_BYTES, STATION_TAG_MAX_ITEMS, validateEnvelope } from "../lib/conformance.mjs";
 
 const protocolRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -154,6 +154,23 @@ test("station semantics reject malformed genesis, unsafe URLs, and proof mutatio
   assert.throws(() => validateEnvelope(mutatedProof), /invalid Ed25519 signature/u);
 });
 
+test("station tags are pinned to the desktop client's 64-byte bound", () => {
+  // One byte past the bound is rejected by the semantic verifier even though the JSON Schema's
+  // code-point maxLength would admit it: the desktop client measures UTF-8 bytes.
+  const oversizedTag = structuredClone(validStationEnvelope);
+  oversizedTag.payload.station.tags = [`${"x".repeat(61)}😀`];
+  assert.equal(Buffer.byteLength(oversizedTag.payload.station.tags[0], "utf8"), STATION_TAG_MAX_BYTES + 1);
+  assert.equal([...oversizedTag.payload.station.tags[0]].length <= 64, true);
+  assert.throws(() => validateEnvelope(oversizedTag), /station\.tags\[0\] must be a non-empty bounded string/u);
+
+  // A tag of exactly the bound passes payload validation: the envelope only fails at the
+  // signature (the clone is unsigned), which proves the bound is inclusive.
+  const boundaryTag = structuredClone(validStationEnvelope);
+  boundaryTag.payload.station.tags = [`${"x".repeat(60)}😀`];
+  assert.equal(Buffer.byteLength(boundaryTag.payload.station.tags[0], "utf8"), STATION_TAG_MAX_BYTES);
+  assert.throws(() => validateEnvelope(boundaryTag), /invalid Ed25519 signature/u);
+});
+
 test("node envelope verifies identity, HTTPS metadata, lifetime, and signature", () => {
   assert.equal(validateEnvelope(validNodeEnvelope).kind, "node");
   assert.throws(
@@ -223,6 +240,9 @@ test("machine-readable limits match the bounded parser profile", () => {
   assert.deepEqual(limits.bounded_json, BOUNDED_JSON_LIMITS);
   assert.equal(limits.observation.max_lifetime_seconds, 3600);
   assert.equal(limits.station.max_streams, 16);
+  assert.equal(limits.station.max_tags, STATION_TAG_MAX_ITEMS);
+  assert.equal(limits.station.max_tag_bytes, STATION_TAG_MAX_BYTES);
+  assert.equal(limits.station.max_tag_bytes, 64);
 });
 
 test("offline runner accepts golden vectors and rejects malformed vectors", () => {
@@ -237,7 +257,7 @@ test("offline runner accepts golden vectors and rejects malformed vectors", () =
     encoding: "utf8",
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
-  assert.match(result.stdout, /12 fixtures passed/u);
+  assert.match(result.stdout, /13 fixtures passed/u);
 });
 
 test("shared interoperability state machines execute every normative feasible case", () => {
